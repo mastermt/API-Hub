@@ -10,6 +10,13 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _payload_cache_local(payload: dict[str, Any]) -> dict[str, Any]:
+    """Resposta do cache local: consulta atual não consome créditos."""
+    data = dict(payload)
+    data["consumed"] = 0
+    return data
+
+
 class Database:
     def __init__(self, db_path: Path) -> None:
         self.db_path = db_path
@@ -207,7 +214,7 @@ class Database:
             return None
         return {
             "source": "local",
-            "data": json.loads(row["response_json"]),
+            "data": _payload_cache_local(json.loads(row["response_json"])),
             "updated_at": row["updated_at"],
         }
 
@@ -226,7 +233,7 @@ class Database:
             return None
         return {
             "source": "local",
-            "data": json.loads(row["response_json"]),
+            "data": _payload_cache_local(json.loads(row["response_json"])),
             "updated_at": row["updated_at"],
         }
 
@@ -272,8 +279,7 @@ class Database:
                 ),
             )
 
-        if consumed > 0:
-            self.register_consumption("cpf", cpf, consumed, "api")
+        self.register_consumption("cpf", cpf, consumed, origem="api")
 
     def save_cep(self, cep: str, payload: dict[str, Any]) -> None:
         now = _utc_now()
@@ -306,17 +312,18 @@ class Database:
                 ),
             )
 
-        if consumed > 0:
-            self.register_consumption("cep", cep, consumed, "api")
+        self.register_consumption("cep", cep, consumed, origem="api")
 
     def register_consumption(
         self,
         servico: str,
         chave: str | None,
         consumed: int,
-        origem: str,
+        *,
+        origem: str = "api",
     ) -> None:
-        if consumed <= 0:
+        """Registra consumo apenas quando houve chamada à API com créditos."""
+        if consumed <= 0 or origem != "api":
             return
 
         config_key = f"{servico}_consumed_total"
