@@ -1,6 +1,8 @@
 """Componentes visuais para exibição dos resultados das consultas."""
 
 import json
+import re
+import unicodedata
 from typing import Any
 
 import flet as ft
@@ -31,36 +33,70 @@ ROTULOS_CPF = {
     "comprovante_emitido_data": "Comprovante emitido em",
 }
 
+def _somente_digitos(texto: str) -> str:
+    return re.sub(r"\D", "", texto)
+
+
+def _nome_para_ascii_maiusculo(texto: str) -> str:
+    sem_acentos = unicodedata.normalize("NFKD", texto)
+    ascii_txt = sem_acentos.encode("ascii", "ignore").decode("ascii")
+    return ascii_txt.upper()
+
+
+def valor_para_copia(valor: str, campo: str | None, *, tipo: str = "cpf") -> str:
+    """Formata o valor conforme o campo antes de copiar."""
+    if not campo:
+        return valor
+
+    if tipo == "cpf":
+        if campo == "numero_de_cpf":
+            return _somente_digitos(valor)
+        if campo == "nome_da_pf":
+            return _nome_para_ascii_maiusculo(valor)
+
+    if tipo == "cep" and campo == "cep":
+        return _somente_digitos(valor)
+
+    return valor
+
 
 def extrair_dados_resultado(
     payload: dict[str, Any],
     *,
     tipo: str = "cpf",
-) -> list[tuple[str, str]]:
-    """Somente campos de dados (status/return/consumed vão na barra inferior)."""
+) -> list[tuple[str, str, str | None]]:
+    """Retorna (rótulo, valor exibido, chave do campo)."""
     if payload.get("return") == "OK":
         dados = extrair_dados_endereco(payload) if tipo == "cep" else payload.get("result")
         if isinstance(dados, dict) and dados:
-            itens: list[tuple[str, str]] = []
+            itens: list[tuple[str, str, str | None]] = []
             if tipo == "cep":
                 for chave in CEP_CAMPOS_ENDERECO:
                     if chave in dados and str(dados[chave]).strip() != "":
-                        itens.append((ROTULOS_CEP[chave], str(dados[chave])))
+                        itens.append((ROTULOS_CEP[chave], str(dados[chave]), chave))
             else:
                 for chave, valor in dados.items():
                     rotulo = ROTULOS_CPF.get(chave, chave.replace("_", " ").title())
-                    itens.append((rotulo, str(valor)))
+                    itens.append((rotulo, str(valor), chave))
             if itens:
                 return itens
 
-    return [("Detalhes", json.dumps(payload, ensure_ascii=False, indent=2))]
+    return [("Detalhes", json.dumps(payload, ensure_ascii=False, indent=2), None)]
 
 
-def criar_campo_resultado(page: ft.Page, label: str, valor: str) -> ft.Control:
+def criar_campo_resultado(
+    page: ft.Page,
+    label: str,
+    valor: str,
+    *,
+    campo: str | None = None,
+    tipo: str = "cpf",
+) -> ft.Control:
     valor_str = valor if valor is not None else ""
 
     async def copiar(e: ft.ControlEvent) -> None:
-        ok = await copiar_texto(e.page, valor_str)
+        texto_copia = valor_para_copia(valor_str, campo, tipo=tipo)
+        ok = await copiar_texto(e.page, texto_copia)
         mostrar_feedback_copia(e.page, label, ok)
 
     return ft.Row(
@@ -95,4 +131,7 @@ def montar_painel_resultado(
     itens = extrair_dados_resultado(payload, tipo=tipo)
     if not itens:
         return [ft.Text("Nenhum dado retornado.", size=13, color=ft.Colors.GREY_700)]
-    return [criar_campo_resultado(page, label, valor) for label, valor in itens]
+    return [
+        criar_campo_resultado(page, label, valor, campo=campo, tipo=tipo)
+        for label, valor, campo in itens
+    ]
