@@ -44,6 +44,7 @@ env/
 flet-build/
 flet-web/
 
+
 # Database
 data/
 *.db
