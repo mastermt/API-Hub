@@ -357,7 +357,7 @@ def build_app(page: ft.Page) -> None:
                     weight=ft.FontWeight.BOLD,
                 ),
                 ft.Text(
-                    "Cache local antes da API",
+                    "Paitom TIC - Pedro Tomaz Alves - 2026",
                     size=11,
                     color=ft.Colors.GREY_700,
                 ),
