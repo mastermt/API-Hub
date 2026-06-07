@@ -66,6 +66,8 @@ class Database:
                     updated_at TEXT NOT NULL
                 );
 
+                CREATE INDEX IF NOT EXISTS idx_cnpj ON cnpj(cnpj);
+
                 CREATE TABLE IF NOT EXISTS cep (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     cep TEXT NOT NULL UNIQUE,
@@ -237,6 +239,20 @@ class Database:
             "updated_at": row["updated_at"],
         }
 
+    def get_cnpj(self, cnpj: str) -> dict[str, Any] | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM cnpj WHERE cnpj = ? LIMIT 1",
+                (cnpj,),
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "source": "local",
+            "data": _payload_cache_local(json.loads(row["response_json"])),
+            "updated_at": row["updated_at"],
+        }
+
     def save_cpf(
         self,
         cpf: str,
@@ -280,6 +296,39 @@ class Database:
             )
 
         self.register_consumption("cpf", cpf, consumed, origem="api")
+
+    def save_cnpj(self, cnpj: str, payload: dict[str, Any]) -> None:
+        now = _utc_now()
+        consumed = int(payload.get("consumed") or 0)
+        return_code = payload.get("return", "")
+        message = payload.get("message", "")
+        response_json = json.dumps(payload, ensure_ascii=False)
+
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO cnpj (
+                    cnpj, return_code, message, consumed, response_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(cnpj) DO UPDATE SET
+                    return_code = excluded.return_code,
+                    message = excluded.message,
+                    consumed = excluded.consumed,
+                    response_json = excluded.response_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    cnpj,
+                    return_code,
+                    message,
+                    consumed,
+                    response_json,
+                    now,
+                    now,
+                ),
+            )
+
+        self.register_consumption("cnpj", cnpj, consumed, origem="api")
 
     def save_cep(self, cep: str, payload: dict[str, Any]) -> None:
         now = _utc_now()

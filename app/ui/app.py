@@ -3,6 +3,7 @@ import flet as ft
 from app.config import DB_PATH
 from app.database.db import Database
 from app.services.cep_service import CepService
+from app.services.cnpj_service import CnpjService
 from app.services.cpf_service import CpfService, formatar_data_nascimento
 from app.ui.layout_helpers import (
     BarraStatus,
@@ -21,6 +22,7 @@ def build_app(page: ft.Page) -> None:
 
     db = Database(DB_PATH)
     service_cpf = CpfService(db)
+    service_cnpj = CnpjService(db)
     service_cep = CepService(db)
     barra_status = BarraStatus()
 
@@ -111,6 +113,96 @@ def build_app(page: ft.Page) -> None:
         ),
         "Retorno",
         resultado_cpf,
+    )
+
+    # --- Aba CNPJ ---
+    cnpj_field = ft.TextField(
+        label="CNPJ",
+        hint_text="14 dígitos (Enter para consultar)",
+        width=largura_campo,
+        max_length=18,
+        dense=True,
+    )
+    forcar_api_cnpj = ft.Checkbox(label="Forçar API (ignorar cache)", value=False)
+    receita_direta_cnpj = ft.Checkbox(
+        label="Receita direta (ignore_db, 2 créditos)",
+        value=False,
+    )
+    ie_cnpj = ft.Dropdown(
+        label="Inscrição Estadual (IE)",
+        width=largura_campo,
+        value="",
+        options=[
+            ft.DropdownOption(key="", text="Não consultar IE"),
+            ft.DropdownOption(key="3", text="IE em cache (ie=3)"),
+            ft.DropdownOption(key="1", text="IE online (ie=1, +2 créditos)"),
+        ],
+    )
+    resultado_cnpj = ft.Column(
+        spacing=6,
+        scroll=ft.ScrollMode.AUTO,
+        expand=True,
+        controls=[mensagem_resultado_vazio()],
+    )
+
+    def exibir_cnpj(payload: dict, source: str) -> None:
+        resultado_cnpj.controls = montar_painel_resultado(page, payload, tipo="cnpj")
+        barra_status.atualizar(payload, source)
+
+    async def buscar_cnpj(_: ft.ControlEvent) -> None:
+        btn_cnpj.disabled = True
+        page.update()
+        try:
+            ie_val = ie_cnpj.value or None
+            if ie_val == "":
+                ie_val = None
+            resposta = service_cnpj.consultar(
+                cnpj_field.value or "",
+                forcar_api=forcar_api_cnpj.value,
+                receita_direta=receita_direta_cnpj.value,
+                ie=ie_val,
+            )
+            exibir_cnpj(resposta["data"], resposta["source"])
+            barra_status.atualizar_totais(db.get_consumed_totals())
+        finally:
+            btn_cnpj.disabled = False
+            page.update()
+
+    def limpar_cnpj(_: ft.ControlEvent) -> None:
+        cnpj_field.value = ""
+        forcar_api_cnpj.value = False
+        receita_direta_cnpj.value = False
+        ie_cnpj.value = ""
+        limpar_resultado(resultado_cnpj)
+        barra_status.limpar()
+        page.update()
+
+    btn_cnpj = ft.FilledButton("Consultar", icon=ft.Icons.SEARCH, on_click=buscar_cnpj)
+    btn_limpar_cnpj = ft.OutlinedButton(
+        "Limpar", icon=ft.Icons.CLEAR_ALL, on_click=limpar_cnpj
+    )
+    cnpj_field.on_submit = buscar_cnpj
+
+    painel_cnpj = criar_painel_duplo(
+        "Pesquisa",
+        ft.Column(
+            [
+                cnpj_field,
+                ft.Text(
+                    "WSCNPJ1 — Receita Federal (timeout até 300s)",
+                    size=11,
+                    color=ft.Colors.GREY_700,
+                ),
+                forcar_api_cnpj,
+                receita_direta_cnpj,
+                ie_cnpj,
+                linha_botoes_acao(btn_cnpj, btn_limpar_cnpj),
+            ],
+            spacing=8,
+            tight=True,
+        ),
+        "Retorno",
+        resultado_cnpj,
     )
 
     # --- Aba CEP ---
@@ -244,7 +336,7 @@ def build_app(page: ft.Page) -> None:
                     expand=True,
                     controls=[
                         painel_cpf,
-                        painel_em_breve("CNPJ"),
+                        painel_cnpj,
                         painel_cep,
                         painel_em_breve("Correios"),
                         painel_em_breve("Outros"),

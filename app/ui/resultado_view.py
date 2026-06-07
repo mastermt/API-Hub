@@ -8,6 +8,7 @@ from typing import Any
 import flet as ft
 
 from app.services.cep_utils import CEP_CAMPOS_ENDERECO, extrair_dados_endereco
+from app.services.cnpj_utils import extrair_campos_cnpj
 from app.ui.clipboard_util import copiar_texto, mostrar_feedback_copia
 
 ROTULOS_CEP = {
@@ -57,6 +58,14 @@ def valor_para_copia(valor: str, campo: str | None, *, tipo: str = "cpf") -> str
     if tipo == "cep" and campo == "cep":
         return _somente_digitos(valor)
 
+    if tipo == "cnpj":
+        if campo == "numero_de_inscricao":
+            return _somente_digitos(valor)
+        if campo in ("nome", "fantasia"):
+            return _nome_para_ascii_maiusculo(valor)
+        if campo == "cep":
+            return _somente_digitos(valor)
+
     return valor
 
 
@@ -67,19 +76,30 @@ def extrair_dados_resultado(
 ) -> list[tuple[str, str, str | None]]:
     """Retorna (rótulo, valor exibido, chave do campo)."""
     if payload.get("return") == "OK":
-        dados = extrair_dados_endereco(payload) if tipo == "cep" else payload.get("result")
-        if isinstance(dados, dict) and dados:
-            itens: list[tuple[str, str, str | None]] = []
-            if tipo == "cep":
+        if tipo == "cep":
+            dados = extrair_dados_endereco(payload)
+            if isinstance(dados, dict) and dados:
+                itens: list[tuple[str, str, str | None]] = []
                 for chave in CEP_CAMPOS_ENDERECO:
                     if chave in dados and str(dados[chave]).strip() != "":
                         itens.append((ROTULOS_CEP[chave], str(dados[chave]), chave))
-            else:
+                if itens:
+                    return itens
+        elif tipo == "cnpj":
+            result = payload.get("result")
+            if isinstance(result, dict):
+                itens_cnpj = extrair_campos_cnpj(result)
+                if itens_cnpj:
+                    return itens_cnpj
+        else:
+            dados = payload.get("result")
+            if isinstance(dados, dict) and dados:
+                itens = []
                 for chave, valor in dados.items():
                     rotulo = ROTULOS_CPF.get(chave, chave.replace("_", " ").title())
                     itens.append((rotulo, str(valor), chave))
-            if itens:
-                return itens
+                if itens:
+                    return itens
 
     return [("Detalhes", json.dumps(payload, ensure_ascii=False, indent=2), None)]
 
@@ -106,9 +126,9 @@ def criar_campo_resultado(
                 value=valor_str,
                 read_only=True,
                 expand=True,
-                multiline=len(valor_str) > 60,
+                multiline=len(valor_str) > 60 or "\n" in valor_str,
                 min_lines=1,
-                max_lines=3 if len(valor_str) > 60 else 1,
+                max_lines=6 if len(valor_str) > 60 or "\n" in valor_str else 1,
                 dense=True,
             ),
             ft.IconButton(

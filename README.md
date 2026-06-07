@@ -2,7 +2,7 @@
 
 Sistema em **Python** e **Flet** para consultas na API do [Hub do Desenvolvedor](https://hubdodesenvolvedor.com.br/), com cache em banco SQLite local.
 
-Atualmente implementado: **consulta CPF** e **consulta CEP**. Estrutura preparada para CNPJ, Correios e Outros.
+Atualmente implementado: **consulta CPF**, **consulta CNPJ** e **consulta CEP**. Estrutura preparada para Correios e Outros.
 
 ## Funcionalidades
 
@@ -90,7 +90,7 @@ Arquivo padrão: `data/consultas.db`
 | Tabela        | Uso                                      |
 |---------------|------------------------------------------|
 | `cpf`         | Consultas CPF (CPF único, JSON completo) |
-| `cnpj`        | Reservada para CNPJ                      |
+| `cnpj`        | Consultas CNPJ (CNPJ único, JSON completo) |
 | `cep`         | Consultas CEP (JSON normalizado)         |
 | `correios`    | Reservada para Correios                  |
 | `outros`      | Reservada para outros serviços           |
@@ -105,6 +105,14 @@ Chaves em `config`: `cpf_consumed_total`, `cnpj_consumed_total`, etc.
 - Parâmetros: `cpf`, `data` (DD/MM/AAAA), `token`
 - Créditos: base 1 | Receita 5 | Turbo 25
 
+## API CNPJ — WSCNPJ1
+
+- Endpoint: `https://ws.hubdodesenvolvedor.com.br/v2/cnpj/`
+- Parâmetros: `cnpj` (somente números), `token`
+- Opcionais: `ignore_db=1` (Receita direta, 2 créditos), `ie=1` (IE online, +60s, +2 créditos), `ie=3` (IE cache)
+- Créditos: base 1 | Receita 2
+- Timeout: 300s (360s com `ie=1`)
+
 ## API CEP — WSCEP1J3 (Principal)
 
 - Endpoint: `https://ws.hubdodesenvolvedor.com.br/v2/cep3/`
@@ -118,7 +126,6 @@ Documentação oficial: [hubdodesenvolvedor.com.br](https://hubdodesenvolvedor.c
 
 ## Próximos passos
 
-- [ ] Consulta CNPJ
 - [ ] Consulta Correios
 - [ ] Outros serviços
 

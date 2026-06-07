@@ -3,6 +3,8 @@ from typing import Any
 import httpx
 
 from app.config import (
+    CNPJ_API_TIMEOUT,
+    CNPJ_API_TIMEOUT_IE_ONLINE,
     CPF_API_TIMEOUT,
     CPF_API_TIMEOUT_TURBO,
     CPF_CONNECT_TIMEOUT,
@@ -75,6 +77,39 @@ class HubClient:
         timeout = httpx.Timeout(
             connect=CPF_CONNECT_TIMEOUT,
             read=timeout_seconds,
+            write=CPF_CONNECT_TIMEOUT,
+            pool=CPF_CONNECT_TIMEOUT,
+        )
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            response = client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+
+    def consultar_cnpj(
+        self,
+        cnpj: str,
+        *,
+        ignore_db: bool = False,
+        ie: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        WSCNPJ1 — CNPJ Receita Federal (somente números no parâmetro cnpj).
+
+        ie=1: IE em tempo real (+60s timeout, +2 créditos extras).
+        ie=3: IE em cache do hub.
+        ignore_db=1: consulta direto na Receita (2 créditos).
+        """
+        params: dict[str, str] = {"cnpj": cnpj, "token": self.token}
+        if ignore_db:
+            params["ignore_db"] = "1"
+        if ie in ("1", "3"):
+            params["ie"] = ie
+
+        url = f"{HUB_BASE_URL}/cnpj/"
+        read_timeout = CNPJ_API_TIMEOUT_IE_ONLINE if ie == "1" else CNPJ_API_TIMEOUT
+        timeout = httpx.Timeout(
+            connect=CPF_CONNECT_TIMEOUT,
+            read=read_timeout,
             write=CPF_CONNECT_TIMEOUT,
             pool=CPF_CONNECT_TIMEOUT,
         )
