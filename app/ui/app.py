@@ -31,6 +31,15 @@ def build_app(page: ft.Page) -> None:
     def limpar_resultado(coluna: ft.Column) -> None:
         coluna.controls = [mensagem_resultado_vazio()]
 
+    campos_pesquisa: list[ft.TextField] = []
+
+    async def focar_pesquisa(indice: int) -> None:
+        if 0 <= indice < len(campos_pesquisa):
+            campo = campos_pesquisa[indice]
+            if not campo.disabled:
+                await campo.focus()
+        page.update()
+
     # --- Aba CPF ---
     cpf_field = ft.TextField(
         label="CPF",
@@ -89,6 +98,7 @@ def build_app(page: ft.Page) -> None:
         turbo_cpf.value = False
         limpar_resultado(resultado_cpf)
         barra_status.limpar()
+        page.run_task(focar_pesquisa, 0)
         page.update()
 
     btn_cpf = ft.FilledButton("Consultar", icon=ft.Icons.SEARCH, on_click=buscar_cpf)
@@ -114,6 +124,7 @@ def build_app(page: ft.Page) -> None:
         "Retorno",
         resultado_cpf,
     )
+    campos_pesquisa.append(cpf_field)
 
     # --- Aba CNPJ ---
     cnpj_field = ft.TextField(
@@ -175,6 +186,7 @@ def build_app(page: ft.Page) -> None:
         ie_cnpj.value = ""
         limpar_resultado(resultado_cnpj)
         barra_status.limpar()
+        page.run_task(focar_pesquisa, 1)
         page.update()
 
     btn_cnpj = ft.FilledButton("Consultar", icon=ft.Icons.SEARCH, on_click=buscar_cnpj)
@@ -204,6 +216,7 @@ def build_app(page: ft.Page) -> None:
         "Retorno",
         resultado_cnpj,
     )
+    campos_pesquisa.append(cnpj_field)
 
     # --- Aba CEP ---
     cep_field = ft.TextField(
@@ -244,6 +257,7 @@ def build_app(page: ft.Page) -> None:
         forcar_api_cep.value = False
         limpar_resultado(resultado_cep)
         barra_status.limpar()
+        page.run_task(focar_pesquisa, 2)
         page.update()
 
     btn_cep = ft.FilledButton("Consultar", icon=ft.Icons.SEARCH, on_click=buscar_cep)
@@ -271,8 +285,9 @@ def build_app(page: ft.Page) -> None:
         "Retorno",
         resultado_cep,
     )
+    campos_pesquisa.append(cep_field)
 
-    def painel_em_breve(nome: str) -> ft.Row:
+    def painel_em_breve(nome: str, indice_aba: int) -> ft.Row:
         campo = ft.TextField(
             label=f"Consulta {nome}",
             hint_text="Em breve",
@@ -291,6 +306,7 @@ def build_app(page: ft.Page) -> None:
             campo.value = ""
             limpar_resultado(resultado)
             barra_status.limpar()
+            page.run_task(focar_pesquisa, indice_aba)
             page.update()
 
         btn_limpar = ft.OutlinedButton(
@@ -301,6 +317,8 @@ def build_app(page: ft.Page) -> None:
             icon=ft.Icons.SEARCH,
             disabled=True,
         )
+
+        campos_pesquisa.append(campo)
 
         return criar_painel_duplo(
             "Pesquisa",
@@ -317,9 +335,17 @@ def build_app(page: ft.Page) -> None:
             resultado,
         )
 
+    async def ao_mudar_aba(e: ft.ControlEvent) -> None:
+        try:
+            indice = int(e.data)
+        except (TypeError, ValueError):
+            indice = tabs.selected_index
+        await focar_pesquisa(indice)
+
     tabs = ft.Tabs(
         length=5,
         expand=True,
+        on_change=ao_mudar_aba,
         content=ft.Column(
             expand=True,
             controls=[
@@ -338,8 +364,8 @@ def build_app(page: ft.Page) -> None:
                         painel_cpf,
                         painel_cnpj,
                         painel_cep,
-                        painel_em_breve("Correios"),
-                        painel_em_breve("Outros"),
+                        painel_em_breve("Correios", 3),
+                        painel_em_breve("Outros", 4),
                     ],
                 ),
             ],
@@ -368,3 +394,5 @@ def build_app(page: ft.Page) -> None:
             spacing=6,
         )
     )
+
+    page.run_task(focar_pesquisa, 0)
