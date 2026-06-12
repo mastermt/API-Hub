@@ -1,3 +1,6 @@
+import asyncio
+import sys
+
 import flet as ft
 
 from app.config import DB_PATH
@@ -14,7 +17,28 @@ from app.ui.layout_helpers import (
 from app.ui.resultado_view import montar_painel_resultado
 
 
+def _configure_windows_event_loop() -> None:
+    """Suprime ruído do Proactor no Windows quando o navegador fecha a conexão."""
+    if sys.platform != "win32":
+        return
+
+    loop = asyncio.get_running_loop()
+    default_handler = loop.get_exception_handler() or loop.default_exception_handler
+
+    def _handler(loop: asyncio.AbstractEventLoop, context: dict) -> None:
+        exc = context.get("exception")
+        if isinstance(exc, ConnectionResetError):
+            return
+        message = context.get("message", "")
+        if "_call_connection_lost" in message:
+            return
+        default_handler(context)
+
+    loop.set_exception_handler(_handler)
+
+
 def build_app(page: ft.Page) -> None:
+    _configure_windows_event_loop()
     page.title = "API Consulta - Hub do Desenvolvedor"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 8
@@ -79,7 +103,8 @@ def build_app(page: ft.Page) -> None:
                 fmt = formatar_data_nascimento(data_field.value)
                 if fmt:
                     data_field.value = fmt
-            resposta = service_cpf.consultar(
+            resposta = await asyncio.to_thread(
+                service_cpf.consultar,
                 cpf_field.value or "",
                 data_field.value,
                 forcar_api=forcar_api_cpf.value,
@@ -167,7 +192,8 @@ def build_app(page: ft.Page) -> None:
             ie_val = ie_cnpj.value or None
             if ie_val == "":
                 ie_val = None
-            resposta = service_cnpj.consultar(
+            resposta = await asyncio.to_thread(
+                service_cnpj.consultar,
                 cnpj_field.value or "",
                 forcar_api=forcar_api_cnpj.value,
                 receita_direta=receita_direta_cnpj.value,
@@ -242,7 +268,8 @@ def build_app(page: ft.Page) -> None:
         btn_cep.disabled = True
         page.update()
         try:
-            resposta = service_cep.consultar(
+            resposta = await asyncio.to_thread(
+                service_cep.consultar,
                 cep_field.value or "",
                 forcar_api=forcar_api_cep.value,
             )
