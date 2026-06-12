@@ -14,16 +14,39 @@ Atualmente implementado: **consulta CPF**, **consulta CNPJ** e **consulta CEP**.
 
 ## Requisitos
 
-- Conda env `api-consulta` (Python 3.14+)
+- Python 3.12 ou superior
 - Token do Hub do Desenvolvedor
+- [uv](https://docs.astral.sh/uv/) (recomendado) ou pip/Conda
 
 ## Instalação
+
+### Com uv (recomendado)
+
+Instale o [uv](https://docs.astral.sh/uv/getting-started/installation/) e, na pasta do projeto:
+
+```bash
+cd c:\projetos\api_consulta_cpf
+uv sync
+```
+
+O `uv sync` cria o ambiente virtual em `.venv` e instala as dependências definidas em `pyproject.toml` (lock em `uv.lock`).
+
+Para usar outra versão do Python:
+
+```bash
+uv python install 3.14
+uv sync --python 3.14
+```
+
+### Com pip / Conda
 
 ```bash
 conda activate api-consulta
 cd c:\projetos\api_consulta_cpf
 pip install -r requirements.txt
 ```
+
+### Configurar o token
 
 Copie o arquivo de ambiente e configure o token:
 
@@ -41,7 +64,31 @@ HUB_TOKEN=seu_token_aqui
 
 ## Execução
 
-### Web (padrão)
+### Com uv
+
+Web (padrão — abre o navegador em `http://127.0.0.1:8550`):
+
+```bash
+uv run python main.py
+# ou
+uv run api-consulta
+```
+
+Desktop:
+
+```bash
+uv run api-consulta --desktop
+```
+
+Porta customizada:
+
+```bash
+uv run api-consulta --port 8080
+```
+
+### Com Python direto
+
+Web (padrão):
 
 ```bash
 python main.py
@@ -49,13 +96,13 @@ python main.py
 
 Abre automaticamente no navegador em `http://127.0.0.1:8550`.
 
-### Desktop
+Desktop:
 
 ```bash
 python main.py --desktop
 ```
 
-### Porta customizada
+Porta customizada:
 
 ```bash
 python main.py --port 8080
@@ -66,6 +113,8 @@ python main.py --port 8080
 ```
 api_consulta_cpf/
 ├── main.py                 # Entrada Flet (web/desktop)
+├── pyproject.toml          # Dependências e metadados (uv)
+├── uv.lock                 # Lock de versões (uv)
 ├── app/
 │   ├── config.py           # Configurações e .env
 │   ├── api/
@@ -80,7 +129,7 @@ api_consulta_cpf/
 │       └── app.py          # Interface Flet
 ├── data/                   # Banco SQLite (gitignored)
 ├── .env.example
-└── requirements.txt
+└── requirements.txt        # Alternativa ao pyproject.toml (pip)
 ```
 
 ## Banco de dados

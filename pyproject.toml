@@ -1,0 +1,25 @@
+[project]
+name = "api-consulta-cpf"
+version = "0.1.2"
+description = "Consultas CPF, CNPJ e CEP na API Hub do Desenvolvedor (Flet + cache SQLite)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flet>=0.27.0",
+    "httpx>=0.28.0",
+    "nuitka[all]>=4.1.2",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+api-consulta = "main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"main.py" = "main.py"
