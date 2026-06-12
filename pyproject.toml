@@ -16,6 +16,7 @@ api-consulta = "main:main"
 
 [dependency-groups]
 build = ["flet-desktop"]
+build-linux-web = ["flet-web"]
 
 [build-system]
 requires = ["hatchling"]

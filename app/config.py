@@ -5,28 +5,42 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-def is_compiled_build() -> bool:
+def dist_root() -> Path | None:
     if getattr(sys, "frozen", False):
-        return True
+        return Path(sys.argv[0]).resolve().parent
 
-    exe = Path(sys.argv[0]).resolve()
-    if exe.suffix.lower() != ".exe" or not exe.is_file():
-        return False
+    candidate = Path(sys.argv[0]).resolve()
+    if not candidate.is_file():
+        return None
 
-    dist_root = exe.parent
-    if (dist_root / "pyproject.toml").exists():
-        return False
+    root = candidate.parent
+    if (root / "pyproject.toml").exists():
+        return None
 
-    # Nuitka standalone: python3xx.dll ao lado do .exe (app fica embutido, sem pasta app/)
-    if any(dist_root.glob("python3*.dll")):
-        return True
+    if candidate.suffix.lower() == ".exe":
+        if any(root.glob("python3*.dll")) or (root / "app").is_dir():
+            return root
+        return None
 
-    return (dist_root / "app").is_dir()
+    if any(root.glob("libpython*.so*")):
+        return root
+
+    return None
+
+
+def is_compiled_build() -> bool:
+    return dist_root() is not None
+
+
+def is_compiled_web_dist() -> bool:
+    root = dist_root()
+    return root is not None and (root / ".web-dist").is_file()
 
 
 def _resolve_base_dir() -> Path:
-    if is_compiled_build():
-        return Path(sys.argv[0]).resolve().parent
+    root = dist_root()
+    if root is not None:
+        return root
 
     return Path(__file__).resolve().parent.parent
 

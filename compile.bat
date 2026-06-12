@@ -96,7 +96,7 @@ if "%EXIT_CODE%"=="0" (
     echo Compilacao concluida em %BUILD_DIR%
     if /I "%MODE%"=="standalone" (
         echo Executavel: %BUILD_DIR%\main.dist\%APP_NAME%.exe
-        call uv run python scripts\post_build_dist.py build\nuitka-zig\main.dist
+        call uv run python scripts\post_build_dist.py build\nuitka-zig\main.dist --profile windows-desktop
         if errorlevel 1 exit /b 1
         echo Copie a pasta main.dist inteira para distribuir.
     ) else (

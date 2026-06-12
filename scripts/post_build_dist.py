@@ -1,16 +1,14 @@
-"""Prepara main.dist após compilação Nuitka (runtime Python, .env, banco)."""
+"""Prepara main.dist após compilação Nuitka (Windows desktop ou Linux web)."""
 
 from __future__ import annotations
 
+import argparse
 import importlib
 import shutil
 import sys
 from pathlib import Path
 
-_STDLIB_PACKAGES = (
-    "ctypes",
-    "sqlite3",
-)
+_STDLIB_PACKAGES = ("ctypes", "sqlite3")
 
 _STDLIB_EXTENSIONS = (
     "_ctypes",
@@ -25,7 +23,6 @@ _STDLIB_EXTENSIONS = (
     "unicodedata",
 )
 
-# DLLs do Conda necessárias para _ctypes.pyd e rede/SSL.
 _CONDA_RUNTIME_DLLS = (
     "ffi.dll",
     "ffi-7.dll",
@@ -40,21 +37,29 @@ def _python_base_dir() -> Path:
     return Path(getattr(sys, "base_prefix", sys.prefix))
 
 
-def _copy_stdlib_package(dist_dir: Path, package_name: str) -> None:
-    source = _python_base_dir() / "Lib" / package_name
-    target = dist_dir / package_name
-    if not source.is_dir():
-        return
+def _stdlib_lib_dir() -> Path:
+    base = _python_base_dir()
+    versioned = base / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}"
+    if versioned.is_dir():
+        return versioned
+    return base / "Lib"
 
-    if target.exists():
-        shutil.rmtree(target)
 
-    shutil.copytree(
-        source,
-        target,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
-    )
-    print(f"Pacote: {package_name} -> {target}")
+def _copy_stdlib_package(dist_dir: Path) -> None:
+    lib_dir = _stdlib_lib_dir()
+    for package_name in _STDLIB_PACKAGES:
+        source = lib_dir / package_name
+        if not source.is_dir():
+            continue
+        target = dist_dir / package_name
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.copytree(
+            source,
+            target,
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+        )
+        print(f"Pacote: {package_name} -> {target}")
 
 
 def _copy_stdlib_extension(dist_dir: Path, module_name: str) -> None:
@@ -64,7 +69,7 @@ def _copy_stdlib_extension(dist_dir: Path, module_name: str) -> None:
         return
 
     source = Path(module.__file__).resolve()
-    if source.suffix.lower() != ".pyd":
+    if source.suffix.lower() not in {".pyd", ".so"}:
         return
 
     target = dist_dir / source.name
@@ -101,18 +106,33 @@ def _copy_missing_python_dlls(dist_dir: Path) -> None:
         print(f"Runtime: {item.name} -> {dist_dir / item.name}")
 
 
-def _copy_flet_package_data(dist_dir: Path) -> None:
+def _copy_missing_lib_dynload(dist_dir: Path) -> None:
+    dynload = _stdlib_lib_dir() / "lib-dynload"
+    if not dynload.is_dir():
+        return
+
+    existing = {path.name for path in dist_dir.iterdir() if path.is_file()}
+    for item in dynload.iterdir():
+        if item.suffix != ".so" or item.name.startswith(("_test",)):
+            continue
+        if item.name in existing:
+            continue
+        shutil.copy2(item, dist_dir / item.name)
+        print(f"Runtime: {item.name} -> {dist_dir / item.name}")
+
+
+def _copy_package_data(dist_dir: Path, package_name: str, extensions: set[str]) -> None:
     try:
-        import flet
+        module = importlib.import_module(package_name)
     except ImportError:
         return
 
-    source_root = Path(flet.__file__).resolve().parent
-    target_root = dist_dir / "flet"
+    source_root = Path(module.__file__).resolve().parent
+    target_root = dist_dir / package_name
     for path in source_root.rglob("*"):
         if not path.is_file():
             continue
-        if path.suffix.lower() not in {".json", ".ttf", ".woff", ".woff2", ".png"}:
+        if path.suffix.lower() not in extensions:
             continue
         relative = path.relative_to(source_root)
         target = target_root / relative
@@ -120,7 +140,37 @@ def _copy_flet_package_data(dist_dir: Path) -> None:
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, target)
-        print(f"Flet: {relative} -> {target}")
+        print(f"{package_name}: {relative} -> {target}")
+
+
+def _copy_flet_package_data(dist_dir: Path) -> None:
+    _copy_package_data(
+        dist_dir,
+        "flet",
+        {".json", ".ttf", ".woff", ".woff2", ".png"},
+    )
+
+
+def _copy_flet_web_package_data(dist_dir: Path) -> None:
+    _copy_package_data(
+        dist_dir,
+        "flet_web",
+        {
+            ".json",
+            ".js",
+            ".mjs",
+            ".css",
+            ".html",
+            ".wasm",
+            ".ttf",
+            ".woff",
+            ".woff2",
+            ".png",
+            ".svg",
+            ".ico",
+            ".map",
+        },
+    )
 
 
 def _copy_app_data(dist_dir: Path, project_root: Path) -> None:
@@ -144,57 +194,93 @@ def _copy_app_data(dist_dir: Path, project_root: Path) -> None:
             print(f"Config: {example} -> {env_dst}")
 
 
-def _validate_dist_dir(dist_dir: Path, project_root: Path) -> None:
+def _validate_dist_dir(dist_dir: Path, project_root: Path, profile: str) -> None:
     dist_dir = dist_dir.resolve()
     project_root = project_root.resolve()
 
     if dist_dir == project_root:
         raise SystemExit(
             "ERRO: destino invalido (raiz do projeto). "
-            "Use: uv run python scripts\\post_build_dist.py build\\nuitka-zig\\main.dist"
+            "Informe build/.../main.dist"
         )
     if (dist_dir / "pyproject.toml").is_file():
-        raise SystemExit(
-            "ERRO: destino parece ser o codigo-fonte, nao o main.dist."
-        )
+        raise SystemExit("ERRO: destino parece ser o codigo-fonte, nao o main.dist.")
     if not dist_dir.name.endswith(".dist"):
         raise SystemExit(
             f"ERRO: destino deve ser uma pasta '*.dist', recebido: {dist_dir.name}"
         )
     if "build" not in dist_dir.parts:
-        raise SystemExit(
-            f"ERRO: destino deve ficar dentro de 'build/', recebido: {dist_dir}"
-        )
-    if not any(dist_dir.glob("*.exe")):
-        raise SystemExit(
-            f"ERRO: nenhum .exe encontrado em {dist_dir}. Compile antes do pos-build."
-        )
+        raise SystemExit(f"ERRO: destino deve ficar dentro de 'build/', recebido: {dist_dir}")
+
+    if profile == "linux-web":
+        if not (dist_dir / "api-consulta").is_file():
+            raise SystemExit("ERRO: binario api-consulta nao encontrado no main.dist.")
+    else:
+        if not any(dist_dir.glob("*.exe")):
+            raise SystemExit("ERRO: nenhum .exe encontrado no main.dist.")
 
 
-def main() -> None:
-    project_root = Path(__file__).resolve().parent.parent
-    arg = sys.argv[1].strip() if len(sys.argv) > 1 else ""
-    dist_dir = (
-        Path(arg)
-        if arg
-        else project_root / "build" / "nuitka-zig" / "main.dist"
-    )
+def _write_web_marker(dist_dir: Path) -> None:
+    marker = dist_dir / ".web-dist"
+    marker.write_text("linux-web\n", encoding="utf-8")
+    print(f"Marcador: {marker}")
 
-    if not dist_dir.is_dir():
-        raise SystemExit(f"Pasta de distribuicao nao encontrada: {dist_dir}")
 
-    _validate_dist_dir(dist_dir, project_root)
-
-    for package_name in _STDLIB_PACKAGES:
-        _copy_stdlib_package(dist_dir, package_name)
-
+def _prepare_windows_desktop(dist_dir: Path, project_root: Path) -> None:
+    _copy_stdlib_package(dist_dir)
     for module_name in _STDLIB_EXTENSIONS:
         _copy_stdlib_extension(dist_dir, module_name)
-
     _copy_conda_runtime_dlls(dist_dir)
     _copy_missing_python_dlls(dist_dir)
     _copy_flet_package_data(dist_dir)
     _copy_app_data(dist_dir, project_root)
+
+
+def _prepare_linux_web(dist_dir: Path, project_root: Path) -> None:
+    _copy_stdlib_package(dist_dir)
+    for module_name in _STDLIB_EXTENSIONS:
+        _copy_stdlib_extension(dist_dir, module_name)
+    _copy_missing_lib_dynload(dist_dir)
+    _copy_flet_package_data(dist_dir)
+    _copy_flet_web_package_data(dist_dir)
+    _copy_app_data(dist_dir, project_root)
+    _write_web_marker(dist_dir)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Prepara pasta main.dist após Nuitka.")
+    parser.add_argument(
+        "dist_dir",
+        nargs="?",
+        default="",
+        help="Caminho para build/.../main.dist",
+    )
+    parser.add_argument(
+        "--profile",
+        choices=("windows-desktop", "linux-web"),
+        default="windows-desktop",
+        help="Perfil de distribuicao (padrao: windows-desktop)",
+    )
+    args = parser.parse_args()
+
+    project_root = Path(__file__).resolve().parent.parent
+    if args.dist_dir.strip():
+        dist_dir = Path(args.dist_dir)
+    elif args.profile == "linux-web":
+        dist_dir = project_root / "build" / "linux-web" / "main.dist"
+    else:
+        dist_dir = project_root / "build" / "nuitka-zig" / "main.dist"
+
+    if not dist_dir.is_dir():
+        raise SystemExit(f"Pasta de distribuicao nao encontrada: {dist_dir}")
+
+    _validate_dist_dir(dist_dir, project_root, args.profile)
+
+    if args.profile == "linux-web":
+        _prepare_linux_web(dist_dir, project_root)
+    else:
+        _prepare_windows_desktop(dist_dir, project_root)
+
     print(f"Distribuicao pronta em: {dist_dir}")
 
 

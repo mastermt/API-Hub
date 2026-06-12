@@ -171,7 +171,61 @@ Confirme que existem na pasta de distribuição:
 Para reaplicar apenas os arquivos de pós-build (sem recompilar):
 
 ```batch
-uv run python scripts\post_build_dist.py build\nuitka-zig\main.dist
+uv run python scripts\post_build_dist.py build\nuitka-zig\main.dist --profile windows-desktop
+```
+
+## Compilação com Nuitka (Linux — modo web)
+
+Gera uma distribuição standalone para **Linux** em modo **web** (servidor Flet + navegador).
+
+> **Importante:** a compilação deve ser feita **em Linux** (máquina, VM, WSL ou CI). O Nuitka **não** faz cross-compile do Windows para Linux.
+
+### Requisitos
+
+- Linux x86_64 (ou WSL2)
+- [uv](https://docs.astral.sh/uv/) no `PATH`
+- Python 3.12 ou 3.13 (recomendado)
+- Compilador C (gcc/clang) ou [Zig](https://ziglang.org/) opcional
+
+### Compilar
+
+```bash
+cd /caminho/para/api_consulta_cpf
+chmod +x compile-linux-web.sh
+./compile-linux-web.sh
+```
+
+Saída: `build/linux-web/main.dist/`
+
+O script executa:
+
+1. `uv sync --group build-linux-web` — instala `flet-web`
+2. Compilação Nuitka para `build/linux-web`
+3. `scripts/post_build_dist.py --profile linux-web` — runtime Python, assets do Flet Web, `.env`, banco e marcador `.web-dist`
+
+### Executar no servidor
+
+```bash
+cd build/linux-web/main.dist
+chmod +x api-consulta
+./api-consulta --host 0.0.0.0 --port 8550
+```
+
+No build Linux web, o modo **web** é o padrão (`--host 0.0.0.0`). Acesse `http://<ip-do-servidor>:8550`.
+
+### Distribuir
+
+Copie a pasta **`main.dist` inteira** para o servidor Linux de destino (mesma arquitetura usada na compilação).
+
+Arquivos necessários na pasta:
+
+- `.env` com `HUB_TOKEN`
+- `data/consultas.db` (opcional)
+
+Pós-build manual:
+
+```bash
+uv run python scripts/post_build_dist.py build/linux-web/main.dist --profile linux-web
 ```
 
 ## Estrutura do projeto
@@ -179,15 +233,18 @@ uv run python scripts\post_build_dist.py build\nuitka-zig\main.dist
 ```
 api_consulta_cpf/
 ├── main.py                 # Entrada Flet (web/desktop)
-├── compile.bat             # Compilação Nuitka + Zig (Windows)
+├── compile.bat             # Compilação Nuitka + Zig (Windows desktop)
+├── compile-linux-web.sh  # Compilação Nuitka Linux (modo web)
 ├── pyproject.toml          # Dependências e metadados (uv)
 ├── uv.lock                 # Lock de versões (uv)
 ├── scripts/
 │   ├── prepare_flet_desktop.py  # Runtime desktop do Flet
 │   └── post_build_dist.py       # Pós-build (DLLs, .env, banco)
 ├── build/                  # Saída da compilação (gitignored)
-│   └── nuitka-zig/
-│       └── main.dist/      # Pasta para distribuir
+│   ├── nuitka-zig/
+│   │   └── main.dist/      # Windows desktop
+│   └── linux-web/
+│       └── main.dist/      # Linux web
 ├── app/
 │   ├── config.py           # Configurações e .env
 │   ├── api/

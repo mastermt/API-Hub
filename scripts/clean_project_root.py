@@ -22,6 +22,10 @@ def main() -> None:
         path.unlink()
         removed.append(path.name)
 
+    for path in root.glob("*.so"):
+        path.unlink()
+        removed.append(path.name)
+
     for path in root.glob("*.dll"):
         if path.name.lower() in {
             "ffi.dll",
