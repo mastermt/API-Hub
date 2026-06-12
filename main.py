@@ -6,6 +6,7 @@ import sys
 
 import flet as ft
 
+from app.config import is_compiled_build
 from app.ui.app import build_app
 
 
@@ -25,7 +26,12 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--desktop",
         action="store_true",
-        help="Abre como app desktop (padrão: navegador web)",
+        help="Abre como app desktop (padrão no .exe compilado)",
+    )
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="Abre no navegador (padrão ao rodar pelo código-fonte)",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Host do servidor web")
     parser.add_argument("--port", type=int, default=8550, help="Porta do servidor web")
@@ -36,8 +42,10 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv or sys.argv[1:])
     _install_signal_handlers()
 
+    use_desktop = args.desktop or (is_compiled_build() and not args.web)
+
     try:
-        if args.desktop:
+        if use_desktop:
             ft.run(main=build_app)
         else:
             ft.run(
