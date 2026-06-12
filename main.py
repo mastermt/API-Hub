@@ -1,12 +1,14 @@
 """Ponto de entrada da aplicação Flet."""
 
 import argparse
+import logging
 import signal
 import sys
 
 import flet as ft
 
 from app.config import is_compiled_build, is_compiled_web_dist
+from app.error_log import install_error_log
 from app.ui.app import build_app
 
 
@@ -43,6 +45,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> None:
+    log_path = install_error_log()
     args = _parse_args(argv or sys.argv[1:])
     _install_signal_handlers()
 
@@ -62,7 +65,10 @@ def main(argv: list[str] | None = None) -> None:
                 port=args.port,
             )
     except KeyboardInterrupt:
-        print("\nEncerrado.")
+        print("\nEncerrado.", file=sys.stderr)
+    except Exception:
+        logging.exception("Falha ao executar a aplicacao (log: %s)", log_path)
+        raise
 
 
 if __name__ == "__main__":

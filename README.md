@@ -170,6 +170,8 @@ Confirme que existem na pasta de distribuição:
 - `.env` com `HUB_TOKEN` configurado
 - `data\consultas.db` (opcional; criado vazio se não existir)
 
+Erros e mensagens de falha são gravados em **`logs\erros.log`** (na mesma pasta do `.exe`). Caminho customizável via `ERROR_LOG_PATH` no `.env`.
+
 Para reaplicar apenas os arquivos de pós-build (sem recompilar):
 
 ```batch
