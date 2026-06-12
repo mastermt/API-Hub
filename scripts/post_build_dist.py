@@ -7,17 +7,11 @@ import shutil
 import sys
 from pathlib import Path
 
-# Pacotes stdlib que o Nuitka pode omitir com compilação parcial.
 _STDLIB_PACKAGES = (
     "ctypes",
     "sqlite3",
 )
 
-
-def _python_base_dir() -> Path:
-    return Path(getattr(sys, "base_prefix", sys.prefix))
-
-# Extensões nativas frequentemente omitidas quando o Nuitka usa --include-package.
 _STDLIB_EXTENSIONS = (
     "_ctypes",
     "_sqlite3",
@@ -31,12 +25,29 @@ _STDLIB_EXTENSIONS = (
     "unicodedata",
 )
 
+# DLLs do Conda necessárias para _ctypes.pyd e rede/SSL.
+_CONDA_RUNTIME_DLLS = (
+    "ffi.dll",
+    "ffi-7.dll",
+    "ffi-8.dll",
+    "libcrypto-3-x64.dll",
+    "libssl-3-x64.dll",
+    "sqlite3.dll",
+)
+
+
+def _python_base_dir() -> Path:
+    return Path(getattr(sys, "base_prefix", sys.prefix))
+
 
 def _copy_stdlib_package(dist_dir: Path, package_name: str) -> None:
     source = _python_base_dir() / "Lib" / package_name
     target = dist_dir / package_name
-    if not source.is_dir() or target.exists():
+    if not source.is_dir():
         return
+
+    if target.exists():
+        shutil.rmtree(target)
 
     shutil.copytree(
         source,
@@ -57,14 +68,23 @@ def _copy_stdlib_extension(dist_dir: Path, module_name: str) -> None:
         return
 
     target = dist_dir / source.name
-    if target.exists():
-        return
-
     shutil.copy2(source, target)
     print(f"Runtime: {source.name} -> {target}")
 
 
-def _copy_dlls_folder(dist_dir: Path) -> None:
+def _copy_conda_runtime_dlls(dist_dir: Path) -> None:
+    bin_dir = _python_base_dir() / "Library" / "bin"
+    if not bin_dir.is_dir():
+        return
+
+    for name in _CONDA_RUNTIME_DLLS:
+        source = bin_dir / name
+        if source.is_file():
+            shutil.copy2(source, dist_dir / name)
+            print(f"Runtime: {name} -> {dist_dir / name}")
+
+
+def _copy_missing_python_dlls(dist_dir: Path) -> None:
     dlls_dir = _python_base_dir() / "DLLs"
     if not dlls_dir.is_dir():
         return
@@ -79,6 +99,28 @@ def _copy_dlls_folder(dist_dir: Path) -> None:
             continue
         shutil.copy2(item, dist_dir / item.name)
         print(f"Runtime: {item.name} -> {dist_dir / item.name}")
+
+
+def _copy_flet_package_data(dist_dir: Path) -> None:
+    try:
+        import flet
+    except ImportError:
+        return
+
+    source_root = Path(flet.__file__).resolve().parent
+    target_root = dist_dir / "flet"
+    for path in source_root.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in {".json", ".ttf", ".woff", ".woff2", ".png"}:
+            continue
+        relative = path.relative_to(source_root)
+        target = target_root / relative
+        if target.is_file():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, target)
+        print(f"Flet: {relative} -> {target}")
 
 
 def _copy_app_data(dist_dir: Path, project_root: Path) -> None:
@@ -102,16 +144,46 @@ def _copy_app_data(dist_dir: Path, project_root: Path) -> None:
             print(f"Config: {example} -> {env_dst}")
 
 
+def _validate_dist_dir(dist_dir: Path, project_root: Path) -> None:
+    dist_dir = dist_dir.resolve()
+    project_root = project_root.resolve()
+
+    if dist_dir == project_root:
+        raise SystemExit(
+            "ERRO: destino invalido (raiz do projeto). "
+            "Use: uv run python scripts\\post_build_dist.py build\\nuitka-zig\\main.dist"
+        )
+    if (dist_dir / "pyproject.toml").is_file():
+        raise SystemExit(
+            "ERRO: destino parece ser o codigo-fonte, nao o main.dist."
+        )
+    if not dist_dir.name.endswith(".dist"):
+        raise SystemExit(
+            f"ERRO: destino deve ser uma pasta '*.dist', recebido: {dist_dir.name}"
+        )
+    if "build" not in dist_dir.parts:
+        raise SystemExit(
+            f"ERRO: destino deve ficar dentro de 'build/', recebido: {dist_dir}"
+        )
+    if not any(dist_dir.glob("*.exe")):
+        raise SystemExit(
+            f"ERRO: nenhum .exe encontrado em {dist_dir}. Compile antes do pos-build."
+        )
+
+
 def main() -> None:
     project_root = Path(__file__).resolve().parent.parent
+    arg = sys.argv[1].strip() if len(sys.argv) > 1 else ""
     dist_dir = (
-        Path(sys.argv[1])
-        if len(sys.argv) > 1
+        Path(arg)
+        if arg
         else project_root / "build" / "nuitka-zig" / "main.dist"
     )
 
     if not dist_dir.is_dir():
         raise SystemExit(f"Pasta de distribuicao nao encontrada: {dist_dir}")
+
+    _validate_dist_dir(dist_dir, project_root)
 
     for package_name in _STDLIB_PACKAGES:
         _copy_stdlib_package(dist_dir, package_name)
@@ -119,7 +191,9 @@ def main() -> None:
     for module_name in _STDLIB_EXTENSIONS:
         _copy_stdlib_extension(dist_dir, module_name)
 
-    _copy_dlls_folder(dist_dir)
+    _copy_conda_runtime_dlls(dist_dir)
+    _copy_missing_python_dlls(dist_dir)
+    _copy_flet_package_data(dist_dir)
     _copy_app_data(dist_dir, project_root)
     print(f"Distribuicao pronta em: {dist_dir}")
 

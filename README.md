@@ -108,13 +108,86 @@ Porta customizada:
 python main.py --port 8080
 ```
 
+## Compilação com Nuitka (Windows)
+
+Gera um executável desktop standalone com [Nuitka](https://nuitka.net/) usando o compilador [Zig](https://ziglang.org/) (`--zig`).
+
+### Requisitos extras
+
+- [Zig](https://ziglang.org/download/) no `PATH` (`zig` disponível no terminal)
+- [uv](https://docs.astral.sh/uv/) com dependências do projeto (inclui Nuitka e `flet-desktop`)
+- Python 3.12 ou 3.13 (recomendado; 3.14 ainda é experimental no Nuitka)
+
+### Compilar
+
+Na pasta do projeto:
+
+```batch
+cd c:\projetos\api_consulta_cpf
+compile.bat
+```
+
+Modo **standalone** (padrão, recomendado): gera a pasta `build\nuitka-zig\main.dist` com o executável e todas as dependências.
+
+```batch
+compile.bat standalone
+```
+
+Modo **onefile** (executável único):
+
+```batch
+compile.bat onefile
+```
+
+O script `compile.bat` executa automaticamente:
+
+1. `uv sync --group build` — instala dependências e `flet-desktop`
+2. `scripts\prepare_flet_desktop.py` — baixa o runtime desktop do Flet (`flet-windows.zip`)
+3. Compilação Nuitka com Zig para `build\nuitka-zig`
+4. `scripts\post_build_dist.py` — copia runtime Python (ctypes, SQLite, DLLs do Conda), dados do Flet, `.env` e `data\consultas.db`
+
+### Executar o build
+
+```batch
+cd build\nuitka-zig\main.dist
+api-consulta.exe
+```
+
+No `.exe` compilado, o modo **desktop** é o padrão. Para forçar o navegador (somente se o build incluir `flet-web`):
+
+```batch
+api-consulta.exe --web
+```
+
+### Distribuir
+
+Copie a pasta **`main.dist` inteira** para outro computador. Não mova apenas o `.exe` — as DLLs e bibliotecas ficam na mesma pasta.
+
+Confirme que existem na pasta de distribuição:
+
+- `.env` com `HUB_TOKEN` configurado
+- `data\consultas.db` (opcional; criado vazio se não existir)
+
+Para reaplicar apenas os arquivos de pós-build (sem recompilar):
+
+```batch
+uv run python scripts\post_build_dist.py build\nuitka-zig\main.dist
+```
+
 ## Estrutura do projeto
 
 ```
 api_consulta_cpf/
 ├── main.py                 # Entrada Flet (web/desktop)
+├── compile.bat             # Compilação Nuitka + Zig (Windows)
 ├── pyproject.toml          # Dependências e metadados (uv)
 ├── uv.lock                 # Lock de versões (uv)
+├── scripts/
+│   ├── prepare_flet_desktop.py  # Runtime desktop do Flet
+│   └── post_build_dist.py       # Pós-build (DLLs, .env, banco)
+├── build/                  # Saída da compilação (gitignored)
+│   └── nuitka-zig/
+│       └── main.dist/      # Pasta para distribuir
 ├── app/
 │   ├── config.py           # Configurações e .env
 │   ├── api/

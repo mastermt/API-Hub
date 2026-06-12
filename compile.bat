@@ -29,7 +29,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [1/4] Sincronizando dependencias...
+echo [1/5] Limpando artefatos na raiz do projeto...
+call uv run python scripts\clean_project_root.py
+if errorlevel 1 exit /b 1
+
+echo.
+echo [2/5] Sincronizando dependencias...
 call uv sync --group build
 if errorlevel 1 exit /b 1
 
@@ -41,17 +46,17 @@ if not defined APP_VERSION (
 echo Versao: %APP_VERSION%
 
 echo.
-echo [2/4] Preparando runtime desktop do Flet...
+echo [3/5] Preparando runtime desktop do Flet...
 call uv run python scripts\prepare_flet_desktop.py
 if errorlevel 1 exit /b 1
 
 echo.
-echo [3/4] Criando pasta de saida...
+echo [4/5] Criando pasta de saida...
 if not exist "build" mkdir "build"
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 
 echo.
-echo [4/4] Compilando com Nuitka (--zig)...
+echo [5/5] Compilando com Nuitka (--zig)...
 call uv run python -m nuitka ^
     --zig ^
     --assume-yes-for-downloads ^
@@ -73,6 +78,7 @@ call uv run python -m nuitka ^
     --include-module=_ctypes ^
     --include-module=sqlite3 ^
     --include-module=_sqlite3 ^
+    --include-package-data=flet ^
     --include-package-data=flet_desktop ^
     --include-data-dir=assets=assets ^
     --windows-icon-from-ico=assets\icon_windows.png ^
@@ -81,7 +87,7 @@ call uv run python -m nuitka ^
     --company-name="Paitom TIC" ^
     --file-version=%APP_VERSION% ^
     --product-version=%APP_VERSION% ^
-    main.py
+    "%~dp0main.py"
 
 set "EXIT_CODE=%ERRORLEVEL%"
 
@@ -89,9 +95,9 @@ echo.
 if "%EXIT_CODE%"=="0" (
     echo Compilacao concluida em %BUILD_DIR%
     if /I "%MODE%"=="standalone" (
-        set "DIST_DIR=%BUILD_DIR%\main.dist"
-        echo Executavel: %DIST_DIR%\%APP_NAME%.exe
-        call uv run python scripts\post_build_dist.py "%DIST_DIR%"
+        echo Executavel: %BUILD_DIR%\main.dist\%APP_NAME%.exe
+        call uv run python scripts\post_build_dist.py build\nuitka-zig\main.dist
+        if errorlevel 1 exit /b 1
         echo Copie a pasta main.dist inteira para distribuir.
     ) else (
         echo Executavel: %BUILD_DIR%\%APP_NAME%.exe

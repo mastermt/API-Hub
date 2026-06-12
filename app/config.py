@@ -10,11 +10,18 @@ def is_compiled_build() -> bool:
         return True
 
     exe = Path(sys.argv[0]).resolve()
-    if exe.suffix.lower() == ".exe" and exe.is_file():
-        dist_root = exe.parent
-        return (dist_root / "app").is_dir() and not (dist_root / "pyproject.toml").exists()
+    if exe.suffix.lower() != ".exe" or not exe.is_file():
+        return False
 
-    return False
+    dist_root = exe.parent
+    if (dist_root / "pyproject.toml").exists():
+        return False
+
+    # Nuitka standalone: python3xx.dll ao lado do .exe (app fica embutido, sem pasta app/)
+    if any(dist_root.glob("python3*.dll")):
+        return True
+
+    return (dist_root / "app").is_dir()
 
 
 def _resolve_base_dir() -> Path:
