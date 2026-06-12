@@ -81,6 +81,7 @@ call uv run python -m nuitka ^
     --include-package-data=flet ^
     --include-package-data=flet_desktop ^
     --include-data-dir=assets=assets ^
+    --windows-console-mode=disable ^
     --windows-icon-from-ico=assets\icon_windows.png ^
     --product-name="API Consulta CPF" ^
     --file-description="Consultas CPF, CNPJ e CEP - Hub do Desenvolvedor" ^

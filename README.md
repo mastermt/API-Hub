@@ -153,7 +153,9 @@ cd build\nuitka-zig\main.dist
 api-consulta.exe
 ```
 
-No `.exe` compilado, o modo **desktop** é o padrão. Para forçar o navegador (somente se o build incluir `flet-web`):
+No `.exe` compilado, o modo **desktop** é o padrão e **não abre janela de console** ao dar duplo clique no Explorer (`--windows-console-mode=disable`).
+
+Para forçar o navegador (somente se o build incluir `flet-web`):
 
 ```batch
 api-consulta.exe --web
