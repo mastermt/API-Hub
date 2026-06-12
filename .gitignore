@@ -36,6 +36,7 @@ dblab.exe
 venv/
 ENV/
 env/
+nuitka-env/
 
 # Environment & secrets
 .env
