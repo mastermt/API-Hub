@@ -1,0 +1,2 @@
+*.sh text eol=lf
+compile-linux-web.sh text eol=lf

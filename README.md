@@ -199,6 +199,12 @@ chmod +x compile-linux-web.sh
 ./compile-linux-web.sh
 ```
 
+Se aparecer `bash\r: No such file or directory`, o arquivo está com fim de linha Windows (CRLF). Corrija com:
+
+```bash
+sed -i 's/\r$//' compile-linux-web.sh
+```
+
 Saída: `build/linux-web/main.dist/`
 
 O script executa:
