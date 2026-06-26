@@ -17,10 +17,82 @@ api-consulta = "main:main"
 [dependency-groups]
 build = ["flet-desktop"]
 build-linux-web = ["flet-web"]
-dev = ["pytest>=8.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "pylint>=3.3",
+    "mypy>=1.14",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "pylint>=3.3",
+    "mypy>=1.14",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 0
+
+[tool.pylint.main]
+py-version = "3.12"
+jobs = 0
+recursive = true
+ignore-paths = ["^build/", "^\\.venv/", "^app/ui/", "^app/error_log\\.py$"]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.messages_control]
+disable = [
+    "abstract-method",
+    "broad-exception-caught",
+    "duplicate-code",
+    "fixme",
+    "import-outside-toplevel",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-instance-attributes",
+    "too-many-locals",
+    "too-many-return-statements",
+    "too-many-statements",
+    "trailing-newlines",
+    "line-too-long",
+]
+
+[tool.pylint.design]
+max-args = 10
+max-locals = 30
+max-statements = 80
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app/api", "app/services", "app/database", "app/config.py", "main.py"]
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+check_untyped_defs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = ["build/", "tests/", "app/ui/", "app/error_log.py"]
+
+[[tool.mypy.overrides]]
+module = ["app.ui.*", "app.error_log"]
+ignore_errors = true
 
 [build-system]
 requires = ["hatchling"]

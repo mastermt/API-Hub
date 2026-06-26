@@ -73,6 +73,11 @@ desktop.ini
 logs/
 *.tmp
 .cache/
+htmlcov/
+.coverage
+.mypy_cache/
+.pytest_cache/
+.pylint.d/
 
 # Notas locais com token (não versionar)
 README.txt

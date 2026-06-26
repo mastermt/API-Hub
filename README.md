@@ -46,6 +46,35 @@ cd c:\projetos\api_consulta_cpf
 pip install -r requirements.txt
 ```
 
+### Instalação de desenvolvimento
+
+Ferramentas extras: **pytest**, **pytest-cov**, **pylint** e **mypy**.
+
+**Com uv (recomendado):**
+
+```bash
+uv sync --group dev
+```
+
+**Com pip / Conda:**
+
+```bash
+pip install -r requirements-dev.txt
+# ou, a partir da raiz do projeto:
+pip install -e ".[dev]"
+```
+
+**Scripts auxiliares:**
+
+```batch
+scripts\install-dev.bat
+```
+
+```bash
+chmod +x scripts/install-dev.sh
+./scripts/install-dev.sh
+```
+
 ### Configurar o token
 
 Copie o arquivo de ambiente e configure o token:
@@ -262,7 +291,11 @@ api_consulta_cpf/
 │   ├── dist_common.py           # Funções compartilhadas de pós-build
 │   ├── prepare_flet_desktop.py  # Runtime desktop do Flet
 │   ├── post_build_dist.py       # Pós-build Windows (DLLs, .env, banco)
-│   └── post_build_linux.py      # Pós-build Linux web (.so, flet_web, .web-dist)
+│   ├── post_build_linux.py      # Pós-build Linux web (.so, flet_web, .web-dist)
+│   ├── install-dev.bat          # Instala grupo dev (Windows)
+│   ├── install-dev.sh           # Instala grupo dev (Linux)
+│   ├── check-dev.bat            # pytest + cov + pylint + mypy
+│   └── check-dev.sh
 ├── deploy/
 │   └── debian13/                # Instalação em /srv + systemd (Debian 13)
 ├── build/                  # Saída da compilação (gitignored)
@@ -285,10 +318,15 @@ api_consulta_cpf/
 │   └── ui/
 │       ├── app.py
 │       └── resultado_view.py
-├── tests/                  # pytest (Correios, hub client)
+├── tests/                  # pytest (unitários + cobertura)
+│   ├── test_cep_service.py
+│   ├── test_cpf_service.py
+│   ├── test_correios_*.py
+│   └── test_database.py
 ├── data/                   # Banco SQLite (gitignored)
 ├── .env.example
-└── requirements.txt        # Alternativa ao pyproject.toml (pip)
+├── requirements.txt        # Dependências runtime (pip)
+└── requirements-dev.txt    # pytest, pylint, mypy, pytest-cov
 ```
 
 ## Banco de dados
@@ -342,14 +380,51 @@ Aba **Frete** e aba **Rastreio** (Correios), cada uma com painel Pesquisa | Reto
 - **Rastreio:** `servico=rastreamento`, `codigo_rastreamento`
 - Timeout: 450s
 
-## Testes
+## Testes e qualidade de código
+
+Requer a [instalação de desenvolvimento](#instalação-de-desenvolvimento).
+
+### Testes unitários (pytest)
 
 ```bash
-uv sync --group dev
 uv run pytest
 ```
 
-Cobertura atual: normalização Correios, serviço com cache mockado e parâmetros do `HubClient`.
+Com relatório de cobertura (`pytest-cov`):
+
+```bash
+uv run pytest --cov=app --cov-report=term-missing --cov-report=html
+```
+
+O HTML fica em `htmlcov/index.html`.
+
+### Análise estática
+
+```bash
+uv run pylint app main.py
+uv run mypy
+```
+
+Ou execute tudo de uma vez (testes + cobertura + pylint + mypy):
+
+```batch
+scripts\check-dev.bat
+```
+
+```bash
+chmod +x scripts/check-dev.sh
+./scripts/check-dev.sh
+```
+
+Configurações em `pyproject.toml` (`[tool.pylint.*]`, `[tool.mypy]`, `[tool.coverage.*]`).  
+Pylint e mypy analisam o backend (`app/api`, `app/services`, `app/database`, `config`); a camada Flet (`app/ui`) fica de fora por não haver stubs tipados.
+
+### Escopo dos testes
+
+- Normalização CEP, CPF e Correios
+- Serviços com cache mockado (`CepService`, `CorreiosService`)
+- Parâmetros do `HubClient` (Correios)
+- Persistência SQLite (`Database`)
 
 ## Próximos passos
 

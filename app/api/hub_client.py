@@ -18,6 +18,13 @@ class HubClientError(Exception):
     pass
 
 
+def _parse_json_dict(response: httpx.Response) -> dict[str, Any]:
+    data = response.json()
+    if not isinstance(data, dict):
+        raise HubClientError("Resposta JSON inválida da API.")
+    return data
+
+
 class HubClient:
     def __init__(self, token: str | None = None) -> None:
         self.token = token or HUB_TOKEN
@@ -57,7 +64,7 @@ class HubClient:
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
             response = client.get(url, params=params)
             response.raise_for_status()
-            return response.json()
+            return _parse_json_dict(response)
 
     def consultar_cep(
         self,
@@ -84,7 +91,7 @@ class HubClient:
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
             response = client.get(url, params=params)
             response.raise_for_status()
-            return response.json()
+            return _parse_json_dict(response)
 
     def consultar_cnpj(
         self,
@@ -117,7 +124,7 @@ class HubClient:
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
             response = client.get(url, params=params)
             response.raise_for_status()
-            return response.json()
+            return _parse_json_dict(response)
 
     def consultar_frete_correios(
         self,
@@ -166,7 +173,7 @@ class HubClient:
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
             response = client.get(url, params=params)
             response.raise_for_status()
-            return response.json()
+            return _parse_json_dict(response)
 
     def consultar_rastreio_correios(
         self,
@@ -194,4 +201,4 @@ class HubClient:
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
             response = client.get(url, params=params)
             response.raise_for_status()
-            return response.json()
+            return _parse_json_dict(response)
