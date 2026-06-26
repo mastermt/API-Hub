@@ -334,7 +334,7 @@ Documentação oficial: [hubdodesenvolvedor.com.br](https://hubdodesenvolvedor.c
 
 ## API Correios — WSFRETEJ / WSRASTREIOJ
 
-Aba **Correios** com duas seções na mesma tela: **Frete** e **Rastreio**.
+Aba **Frete** e aba **Rastreio** (Correios), cada uma com painel Pesquisa | Retorno.
 
 - Endpoint: `https://ws.hubdodesenvolvedor.com.br/v2/correios/`
 - **Frete:** `servico=calculoFrete`, CEPs, dimensões (cm), peso (g), `formato` (1=caixa, 2=rolo, 3=envelope), `tipoServico` (40010=SEDEX, 41106=PAC, …)

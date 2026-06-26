@@ -317,7 +317,7 @@ def build_app(page: ft.Page) -> None:
     )
     campos_pesquisa.append(cep_field)
 
-    # --- Aba Correios (Frete + Rastreio) ---
+    # --- Aba Frete (Correios WSFRETEJ) ---
     campo_largura_pequeno = 120
 
     frete_cep_origem = ft.TextField(
@@ -423,7 +423,7 @@ def build_app(page: ft.Page) -> None:
     frete_cep_destino.on_submit = buscar_frete
 
     painel_frete = criar_painel_duplo(
-        "Frete — pesquisa",
+        "Pesquisa",
         ft.Column(
             [
                 ft.Row([frete_cep_origem, frete_cep_destino], spacing=8, wrap=True),
@@ -447,11 +447,12 @@ def build_app(page: ft.Page) -> None:
             tight=True,
             scroll=ft.ScrollMode.AUTO,
         ),
-        "Frete — retorno",
+        "Retorno",
         resultado_frete,
     )
     campos_pesquisa.append(frete_cep_origem)
 
+    # --- Aba Rastreio (Correios WSRASTREIOJ) ---
     rastreio_codigo = ft.TextField(
         label="Código de rastreamento",
         hint_text="Ex.: AA123456789BR (Enter)",
@@ -493,7 +494,7 @@ def build_app(page: ft.Page) -> None:
         forcar_api_rastreio.value = False
         limpar_resultado(resultado_rastreio)
         barra_status.limpar()
-        page.run_task(focar_pesquisa, 3)
+        page.run_task(focar_pesquisa, 4)
         page.update()
 
     btn_rastreio = ft.FilledButton(
@@ -504,8 +505,10 @@ def build_app(page: ft.Page) -> None:
     )
     rastreio_codigo.on_submit = buscar_rastreio
 
+    campos_pesquisa.append(rastreio_codigo)
+
     painel_rastreio = criar_painel_duplo(
-        "Rastreio — pesquisa",
+        "Pesquisa",
         ft.Column(
             [
                 rastreio_codigo,
@@ -520,19 +523,8 @@ def build_app(page: ft.Page) -> None:
             spacing=8,
             tight=True,
         ),
-        "Rastreio — retorno",
+        "Retorno",
         resultado_rastreio,
-    )
-
-    painel_correios = ft.Column(
-        [
-            painel_frete,
-            ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
-            painel_rastreio,
-        ],
-        spacing=8,
-        expand=True,
-        scroll=ft.ScrollMode.AUTO,
     )
 
     def painel_em_breve(nome: str, indice_aba: int) -> ft.Row:
@@ -591,7 +583,7 @@ def build_app(page: ft.Page) -> None:
         await focar_pesquisa(indice)
 
     tabs = ft.Tabs(
-        length=5,
+        length=6,
         expand=True,
         on_change=ao_mudar_aba,
         content=ft.Column(
@@ -602,7 +594,8 @@ def build_app(page: ft.Page) -> None:
                         ft.Tab(label="CPF", icon=ft.Icons.BADGE_OUTLINED),
                         ft.Tab(label="CNPJ", icon=ft.Icons.BUSINESS_OUTLINED),
                         ft.Tab(label="CEP", icon=ft.Icons.LOCATION_ON_OUTLINED),
-                        ft.Tab(label="Correios", icon=ft.Icons.LOCAL_SHIPPING_OUTLINED),
+                        ft.Tab(label="Frete", icon=ft.Icons.LOCAL_SHIPPING_OUTLINED),
+                        ft.Tab(label="Rastreio", icon=ft.Icons.TRACK_CHANGES_OUTLINED),
                         ft.Tab(label="Outros", icon=ft.Icons.MORE_HORIZ),
                     ],
                 ),
@@ -612,8 +605,9 @@ def build_app(page: ft.Page) -> None:
                         painel_cpf,
                         painel_cnpj,
                         painel_cep,
-                        painel_correios,
-                        painel_em_breve("Outros", 4),
+                        painel_frete,
+                        painel_rastreio,
+                        painel_em_breve("Outros", 5),
                     ],
                 ),
             ],

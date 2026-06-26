@@ -27,15 +27,17 @@ def criar_painel_duplo(
     conteudo_esq: ft.Control,
     titulo_dir: str,
     conteudo_dir: ft.Control,
+    *,
+    expand: bool = True,
 ) -> ft.Row:
     return ft.Row(
         [
-            criar_frame(titulo_esq, conteudo_esq, expand=True),
-            criar_frame(titulo_dir, conteudo_dir, expand=True),
+            criar_frame(titulo_esq, conteudo_esq, expand=expand),
+            criar_frame(titulo_dir, conteudo_dir, expand=expand),
         ],
         spacing=10,
-        expand=True,
-        vertical_alignment=ft.CrossAxisAlignment.STRETCH,
+        expand=expand,
+        vertical_alignment=ft.CrossAxisAlignment.START if not expand else ft.CrossAxisAlignment.STRETCH,
     )
 
 
