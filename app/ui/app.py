@@ -7,6 +7,8 @@ from app.config import DB_PATH
 from app.database.db import Database
 from app.services.cep_service import CepService
 from app.services.cnpj_service import CnpjService
+from app.services.correios_service import CorreiosService
+from app.services.correios_utils import FORMATOS_EMBALAGEM, TIPOS_SERVICO_FRETE
 from app.services.cpf_service import CpfService, formatar_data_nascimento
 from app.ui.layout_helpers import (
     BarraStatus,
@@ -48,6 +50,7 @@ def build_app(page: ft.Page) -> None:
     service_cpf = CpfService(db)
     service_cnpj = CnpjService(db)
     service_cep = CepService(db)
+    service_correios = CorreiosService(db)
     barra_status = BarraStatus()
 
     largura_campo = 280
@@ -314,6 +317,224 @@ def build_app(page: ft.Page) -> None:
     )
     campos_pesquisa.append(cep_field)
 
+    # --- Aba Correios (Frete + Rastreio) ---
+    campo_largura_pequeno = 120
+
+    frete_cep_origem = ft.TextField(
+        label="CEP origem",
+        hint_text="8 dígitos",
+        width=campo_largura_pequeno,
+        max_length=9,
+        dense=True,
+    )
+    frete_cep_destino = ft.TextField(
+        label="CEP destino",
+        hint_text="8 dígitos",
+        width=campo_largura_pequeno,
+        max_length=9,
+        dense=True,
+    )
+    frete_altura = ft.TextField(label="Altura (cm)", width=90, dense=True, value="10")
+    frete_largura = ft.TextField(label="Largura (cm)", width=90, dense=True, value="11")
+    frete_comprimento = ft.TextField(
+        label="Comprimento (cm)", width=110, dense=True, value="17"
+    )
+    frete_peso = ft.TextField(label="Peso (g)", width=90, dense=True, value="300")
+    frete_formato = ft.Dropdown(
+        label="Formato",
+        width=180,
+        value="1",
+        options=[
+            ft.DropdownOption(key=k, text=v) for k, v in FORMATOS_EMBALAGEM.items()
+        ],
+    )
+    frete_tipo_servico = ft.Dropdown(
+        label="Serviço",
+        width=200,
+        value="40010",
+        options=[
+            ft.DropdownOption(key=k, text=f"{v} ({k})")
+            for k, v in TIPOS_SERVICO_FRETE.items()
+        ],
+    )
+    frete_aviso_recebimento = ft.Checkbox(label="Aviso de recebimento", value=False)
+    frete_mao_propria = ft.Checkbox(label="Mãos próprias", value=False)
+    forcar_api_frete = ft.Checkbox(label="Forçar API (ignorar cache)", value=False)
+    resultado_frete = ft.Column(
+        spacing=6,
+        scroll=ft.ScrollMode.AUTO,
+        expand=True,
+        controls=[mensagem_resultado_vazio()],
+    )
+
+    def exibir_frete(payload: dict, source: str) -> None:
+        resultado_frete.controls = montar_painel_resultado(
+            page, payload, tipo="correios_frete"
+        )
+        barra_status.atualizar(payload, source)
+
+    async def buscar_frete(_: ft.ControlEvent) -> None:
+        btn_frete.disabled = True
+        page.update()
+        try:
+            resposta = await asyncio.to_thread(
+                service_correios.calcular_frete,
+                cep_origem=frete_cep_origem.value or "",
+                cep_destino=frete_cep_destino.value or "",
+                altura=frete_altura.value or "",
+                largura=frete_largura.value or "",
+                comprimento=frete_comprimento.value or "",
+                peso=frete_peso.value or "",
+                formato=frete_formato.value or "1",
+                tipo_servico=frete_tipo_servico.value or "40010",
+                aviso_recebimento=frete_aviso_recebimento.value,
+                mao_propria=frete_mao_propria.value,
+                forcar_api=forcar_api_frete.value,
+            )
+            exibir_frete(resposta["data"], resposta["source"])
+            barra_status.atualizar_totais(db.get_consumed_totals())
+        finally:
+            btn_frete.disabled = False
+            page.update()
+
+    def limpar_frete(_: ft.ControlEvent) -> None:
+        frete_cep_origem.value = ""
+        frete_cep_destino.value = ""
+        frete_altura.value = "10"
+        frete_largura.value = "11"
+        frete_comprimento.value = "17"
+        frete_peso.value = "300"
+        frete_formato.value = "1"
+        frete_tipo_servico.value = "40010"
+        frete_aviso_recebimento.value = False
+        frete_mao_propria.value = False
+        forcar_api_frete.value = False
+        limpar_resultado(resultado_frete)
+        barra_status.limpar()
+        page.run_task(focar_pesquisa, 3)
+        page.update()
+
+    btn_frete = ft.FilledButton(
+        "Calcular frete", icon=ft.Icons.LOCAL_SHIPPING, on_click=buscar_frete
+    )
+    btn_limpar_frete = ft.OutlinedButton(
+        "Limpar", icon=ft.Icons.CLEAR_ALL, on_click=limpar_frete
+    )
+    frete_cep_destino.on_submit = buscar_frete
+
+    painel_frete = criar_painel_duplo(
+        "Frete — pesquisa",
+        ft.Column(
+            [
+                ft.Row([frete_cep_origem, frete_cep_destino], spacing=8, wrap=True),
+                ft.Row(
+                    [frete_altura, frete_largura, frete_comprimento, frete_peso],
+                    spacing=8,
+                    wrap=True,
+                ),
+                ft.Row([frete_formato, frete_tipo_servico], spacing=8, wrap=True),
+                ft.Text(
+                    "WSFRETEJ — cálculo de frete (timeout até 450s)",
+                    size=11,
+                    color=ft.Colors.GREY_700,
+                ),
+                frete_aviso_recebimento,
+                frete_mao_propria,
+                forcar_api_frete,
+                linha_botoes_acao(btn_frete, btn_limpar_frete),
+            ],
+            spacing=8,
+            tight=True,
+            scroll=ft.ScrollMode.AUTO,
+        ),
+        "Frete — retorno",
+        resultado_frete,
+    )
+    campos_pesquisa.append(frete_cep_origem)
+
+    rastreio_codigo = ft.TextField(
+        label="Código de rastreamento",
+        hint_text="Ex.: AA123456789BR (Enter)",
+        width=largura_campo,
+        max_length=20,
+        dense=True,
+    )
+    forcar_api_rastreio = ft.Checkbox(label="Forçar API (ignorar cache)", value=False)
+    resultado_rastreio = ft.Column(
+        spacing=6,
+        scroll=ft.ScrollMode.AUTO,
+        expand=True,
+        controls=[mensagem_resultado_vazio()],
+    )
+
+    def exibir_rastreio(payload: dict, source: str) -> None:
+        resultado_rastreio.controls = montar_painel_resultado(
+            page, payload, tipo="correios_rastreio"
+        )
+        barra_status.atualizar(payload, source)
+
+    async def buscar_rastreio(_: ft.ControlEvent) -> None:
+        btn_rastreio.disabled = True
+        page.update()
+        try:
+            resposta = await asyncio.to_thread(
+                service_correios.rastrear,
+                rastreio_codigo.value or "",
+                forcar_api=forcar_api_rastreio.value,
+            )
+            exibir_rastreio(resposta["data"], resposta["source"])
+            barra_status.atualizar_totais(db.get_consumed_totals())
+        finally:
+            btn_rastreio.disabled = False
+            page.update()
+
+    def limpar_rastreio(_: ft.ControlEvent) -> None:
+        rastreio_codigo.value = ""
+        forcar_api_rastreio.value = False
+        limpar_resultado(resultado_rastreio)
+        barra_status.limpar()
+        page.run_task(focar_pesquisa, 3)
+        page.update()
+
+    btn_rastreio = ft.FilledButton(
+        "Rastrear", icon=ft.Icons.TRACK_CHANGES, on_click=buscar_rastreio
+    )
+    btn_limpar_rastreio = ft.OutlinedButton(
+        "Limpar", icon=ft.Icons.CLEAR_ALL, on_click=limpar_rastreio
+    )
+    rastreio_codigo.on_submit = buscar_rastreio
+
+    painel_rastreio = criar_painel_duplo(
+        "Rastreio — pesquisa",
+        ft.Column(
+            [
+                rastreio_codigo,
+                ft.Text(
+                    "WSRASTREIOJ — rastreamento de objeto",
+                    size=11,
+                    color=ft.Colors.GREY_700,
+                ),
+                forcar_api_rastreio,
+                linha_botoes_acao(btn_rastreio, btn_limpar_rastreio),
+            ],
+            spacing=8,
+            tight=True,
+        ),
+        "Rastreio — retorno",
+        resultado_rastreio,
+    )
+
+    painel_correios = ft.Column(
+        [
+            painel_frete,
+            ft.Divider(height=1, color=ft.Colors.OUTLINE_VARIANT),
+            painel_rastreio,
+        ],
+        spacing=8,
+        expand=True,
+        scroll=ft.ScrollMode.AUTO,
+    )
+
     def painel_em_breve(nome: str, indice_aba: int) -> ft.Row:
         campo = ft.TextField(
             label=f"Consulta {nome}",
@@ -391,7 +612,7 @@ def build_app(page: ft.Page) -> None:
                         painel_cpf,
                         painel_cnpj,
                         painel_cep,
-                        painel_em_breve("Correios", 3),
+                        painel_correios,
                         painel_em_breve("Outros", 4),
                     ],
                 ),

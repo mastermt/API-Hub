@@ -9,6 +9,7 @@ import flet as ft
 
 from app.services.cep_utils import CEP_CAMPOS_ENDERECO, extrair_dados_endereco
 from app.services.cnpj_utils import extrair_campos_cnpj
+from app.services.correios_utils import CAMPOS_FRETE, extrair_dados_frete, extrair_eventos_rastreio
 from app.ui.clipboard_util import copiar_texto, mostrar_feedback_copia
 
 ROTULOS_CEP = {
@@ -33,6 +34,26 @@ ROTULOS_CPF = {
     "comprovante_emitido": "Comprovante emitido",
     "comprovante_emitido_data": "Comprovante emitido em",
 }
+
+ROTULOS_FRETE = {
+    "servico": "Serviço",
+    "prazo_de_entrega": "Prazo de entrega",
+    "entrega_sabado": "Entrega sábado",
+    "valor_total": "Valor total",
+}
+
+
+def formatar_eventos_rastreio(eventos: list[dict[str, Any]]) -> str:
+    linhas: list[str] = []
+    for evento in eventos:
+        data = str(evento.get("data") or "").strip()
+        local = str(evento.get("local") or "").strip()
+        retorno = str(evento.get("retorno") or "").strip()
+        partes = [p for p in (data, local, retorno) if p]
+        if partes:
+            linhas.append(" — ".join(partes))
+    return "\n".join(linhas)
+
 
 def _somente_digitos(texto: str) -> str:
     return re.sub(r"\D", "", texto)
@@ -91,6 +112,29 @@ def extrair_dados_resultado(
                 itens_cnpj = extrair_campos_cnpj(result)
                 if itens_cnpj:
                     return itens_cnpj
+        elif tipo == "correios_frete":
+            dados = extrair_dados_frete(payload)
+            if dados:
+                itens_frete: list[tuple[str, str, str | None]] = []
+                for chave in CAMPOS_FRETE:
+                    if chave in dados and str(dados[chave]).strip() != "":
+                        itens_frete.append(
+                            (ROTULOS_FRETE[chave], str(dados[chave]), chave)
+                        )
+                if itens_frete:
+                    return itens_frete
+        elif tipo == "correios_rastreio":
+            eventos = extrair_eventos_rastreio(payload)
+            itens_rastreio: list[tuple[str, str, str | None]] = []
+            imagem = payload.get("imagem_status")
+            if imagem:
+                itens_rastreio.append(("Imagem status", str(imagem), "imagem_status"))
+            if eventos:
+                itens_rastreio.append(
+                    ("Histórico", formatar_eventos_rastreio(eventos), "historico")
+                )
+            if itens_rastreio:
+                return itens_rastreio
         else:
             dados = payload.get("result")
             if isinstance(dados, dict) and dados:

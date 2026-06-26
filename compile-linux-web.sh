@@ -86,7 +86,7 @@ echo "Compilacao concluida em ${BUILD_DIR}"
 
 if [[ "${MODE}" == "standalone" ]]; then
   echo "Executavel: ${DIST_DIR}/${APP_NAME}"
-  uv run python scripts/post_build_dist.py "${DIST_DIR}" --profile linux-web
+  uv run python scripts/post_build_linux.py "${DIST_DIR}"
   echo
   echo "Distribuicao web pronta. Copie a pasta main.dist para o servidor Linux."
   echo "Uso: ./${APP_NAME} --host 0.0.0.0 --port 8550"

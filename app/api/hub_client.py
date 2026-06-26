@@ -5,6 +5,7 @@ import httpx
 from app.config import (
     CNPJ_API_TIMEOUT,
     CNPJ_API_TIMEOUT_IE_ONLINE,
+    CORREIOS_API_TIMEOUT,
     CPF_API_TIMEOUT,
     CPF_API_TIMEOUT_TURBO,
     CPF_CONNECT_TIMEOUT,
@@ -110,6 +111,83 @@ class HubClient:
         timeout = httpx.Timeout(
             connect=CPF_CONNECT_TIMEOUT,
             read=read_timeout,
+            write=CPF_CONNECT_TIMEOUT,
+            pool=CPF_CONNECT_TIMEOUT,
+        )
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            response = client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+
+    def consultar_frete_correios(
+        self,
+        *,
+        cep_origem: str,
+        cep_destino: str,
+        altura: str,
+        largura: str,
+        comprimento: str,
+        peso: str,
+        formato: str,
+        tipo_servico: str,
+        aviso_recebimento: bool = False,
+        mao_propria: bool = False,
+        timeout_seconds: int = CORREIOS_API_TIMEOUT,
+    ) -> dict[str, Any]:
+        """
+        WSFRETEJ — cálculo de frete Correios.
+
+        GET {HUB_BASE_URL}/correios/?servico=calculoFrete&...
+        """
+        params: dict[str, str] = {
+            "servico": "calculoFrete",
+            "cepOrigem": cep_origem,
+            "cepDestino": cep_destino,
+            "altura": altura,
+            "largura": largura,
+            "comprimento": comprimento,
+            "peso": peso,
+            "formato": formato,
+            "tipoServico": tipo_servico,
+            "token": self.token,
+        }
+        if aviso_recebimento:
+            params["avisoRecebimento"] = "S"
+        if mao_propria:
+            params["maoPropria"] = "S"
+
+        url = f"{HUB_BASE_URL}/correios/"
+        timeout = httpx.Timeout(
+            connect=CPF_CONNECT_TIMEOUT,
+            read=timeout_seconds,
+            write=CPF_CONNECT_TIMEOUT,
+            pool=CPF_CONNECT_TIMEOUT,
+        )
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            response = client.get(url, params=params)
+            response.raise_for_status()
+            return response.json()
+
+    def consultar_rastreio_correios(
+        self,
+        codigo_rastreamento: str,
+        *,
+        timeout_seconds: int = CORREIOS_API_TIMEOUT,
+    ) -> dict[str, Any]:
+        """
+        WSRASTREIOJ — rastreamento de objeto nos Correios.
+
+        GET {HUB_BASE_URL}/correios/?servico=rastreamento&codigo_rastreamento=...&token=...
+        """
+        params: dict[str, str] = {
+            "servico": "rastreamento",
+            "codigo_rastreamento": codigo_rastreamento,
+            "token": self.token,
+        }
+        url = f"{HUB_BASE_URL}/correios/"
+        timeout = httpx.Timeout(
+            connect=CPF_CONNECT_TIMEOUT,
+            read=timeout_seconds,
             write=CPF_CONNECT_TIMEOUT,
             pool=CPF_CONNECT_TIMEOUT,
         )

@@ -120,6 +120,7 @@ class Database:
                 """
             )
             self._migrate_cpf_unique(conn)
+            self._ensure_correios_unique(conn)
             self._ensure_config_keys(conn)
 
     def _migrate_cpf_unique(self, conn: sqlite3.Connection) -> None:
@@ -170,6 +171,14 @@ class Database:
             DROP TABLE cpf;
             ALTER TABLE cpf_new RENAME TO cpf;
             CREATE INDEX IF NOT EXISTS idx_cpf ON cpf(cpf);
+            """
+        )
+
+    def _ensure_correios_unique(self, conn: sqlite3.Connection) -> None:
+        conn.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_correios_chave_tipo
+            ON correios(chave, tipo)
             """
         )
 
@@ -362,6 +371,59 @@ class Database:
             )
 
         self.register_consumption("cep", cep, consumed, origem="api")
+
+    def get_correios(self, chave: str, tipo: str) -> dict[str, Any] | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                """
+                SELECT * FROM correios
+                WHERE chave = ? AND tipo = ?
+                LIMIT 1
+                """,
+                (chave, tipo),
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "source": "local",
+            "data": _payload_cache_local(json.loads(row["response_json"])),
+            "updated_at": row["updated_at"],
+        }
+
+    def save_correios(self, chave: str, tipo: str, payload: dict[str, Any]) -> None:
+        now = _utc_now()
+        consumed = int(payload.get("consumed") or 0)
+        return_code = payload.get("return", "")
+        message = payload.get("message", "")
+        response_json = json.dumps(payload, ensure_ascii=False)
+
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO correios (
+                    chave, tipo, return_code, message, consumed,
+                    response_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(chave, tipo) DO UPDATE SET
+                    return_code = excluded.return_code,
+                    message = excluded.message,
+                    consumed = excluded.consumed,
+                    response_json = excluded.response_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    chave,
+                    tipo,
+                    return_code,
+                    message,
+                    consumed,
+                    response_json,
+                    now,
+                    now,
+                ),
+            )
+
+        self.register_consumption("correios", chave, consumed, origem="api")
 
     def register_consumption(
         self,

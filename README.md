@@ -2,7 +2,7 @@
 
 Sistema em **Python** e **Flet** para consultas na API do [Hub do Desenvolvedor](https://hubdodesenvolvedor.com.br/), com cache em banco SQLite local.
 
-Atualmente implementado: **consulta CPF**, **consulta CNPJ** e **consulta CEP**. Estrutura preparada para Correios e Outros.
+Atualmente implementado: **consulta CPF**, **consulta CNPJ**, **consulta CEP** e **Correios** (frete + rastreio). Estrutura preparada para Outros.
 
 ## Funcionalidades
 
@@ -175,7 +175,7 @@ Erros e mensagens de falha são gravados em **`logs\erros.log`** (na mesma pasta
 Para reaplicar apenas os arquivos de pós-build (sem recompilar):
 
 ```batch
-uv run python scripts\post_build_dist.py build\nuitka-zig\main.dist --profile windows-desktop
+uv run python scripts\post_build_dist.py build\nuitka-zig\main.dist
 ```
 
 ## Compilação com Nuitka (Linux — modo web)
@@ -211,7 +211,7 @@ O script executa:
 
 1. `uv sync --group build-linux-web` — instala `flet-web`
 2. Compilação Nuitka para `build/linux-web`
-3. `scripts/post_build_dist.py --profile linux-web` — runtime Python, assets do Flet Web, `.env`, banco e marcador `.web-dist`
+3. `scripts/post_build_linux.py` — runtime Python, assets do Flet Web, `.env`, banco e marcador `.web-dist`
 
 ### Executar no servidor
 
@@ -235,7 +235,18 @@ Arquivos necessários na pasta:
 Pós-build manual:
 
 ```bash
-uv run python scripts/post_build_dist.py build/linux-web/main.dist --profile linux-web
+uv run python scripts/post_build_linux.py build/linux-web/main.dist
+```
+
+### Instalar no Debian 13 (servico systemd)
+
+Arquivos em [`deploy/debian13/`](deploy/debian13/README.md): instala em `/srv/api-consulta-cpf` com autostart.
+
+```bash
+chmod +x deploy/debian13/install.sh
+sudo ./deploy/debian13/install.sh build/linux-web/main.dist
+sudo nano /srv/api-consulta-cpf/.env   # HUB_TOKEN
+sudo systemctl restart api-consulta-cpf
 ```
 
 ## Estrutura do projeto
@@ -248,8 +259,12 @@ api_consulta_cpf/
 ├── pyproject.toml          # Dependências e metadados (uv)
 ├── uv.lock                 # Lock de versões (uv)
 ├── scripts/
+│   ├── dist_common.py           # Funções compartilhadas de pós-build
 │   ├── prepare_flet_desktop.py  # Runtime desktop do Flet
-│   └── post_build_dist.py       # Pós-build (DLLs, .env, banco)
+│   ├── post_build_dist.py       # Pós-build Windows (DLLs, .env, banco)
+│   └── post_build_linux.py      # Pós-build Linux web (.so, flet_web, .web-dist)
+├── deploy/
+│   └── debian13/                # Instalação em /srv + systemd (Debian 13)
 ├── build/                  # Saída da compilação (gitignored)
 │   ├── nuitka-zig/
 │   │   └── main.dist/      # Windows desktop
@@ -262,11 +277,15 @@ api_consulta_cpf/
 │   ├── database/
 │   │   └── db.py           # SQLite e tabelas
 │   ├── services/
-│   │   ├── cpf_service.py  # Lógica cache + API CPF
-│   │   ├── cep_service.py  # Lógica cache + API CEP
-│   │   └── cep_utils.py    # Normalização WSCEP1J3
+│   │   ├── cpf_service.py
+│   │   ├── cnpj_service.py
+│   │   ├── cep_service.py
+│   │   ├── correios_service.py  # Frete + rastreio
+│   │   └── correios_utils.py
 │   └── ui/
-│       └── app.py          # Interface Flet
+│       ├── app.py
+│       └── resultado_view.py
+├── tests/                  # pytest (Correios, hub client)
 ├── data/                   # Banco SQLite (gitignored)
 ├── .env.example
 └── requirements.txt        # Alternativa ao pyproject.toml (pip)
@@ -281,7 +300,7 @@ Arquivo padrão: `data/consultas.db`
 | `cpf`         | Consultas CPF (CPF único, JSON completo) |
 | `cnpj`        | Consultas CNPJ (CNPJ único, JSON completo) |
 | `cep`         | Consultas CEP (JSON normalizado)         |
-| `correios`    | Reservada para Correios                  |
+| `correios`    | Frete e rastreio (chave + tipo)          |
 | `outros`      | Reservada para outros serviços           |
 | `config`      | Totais de créditos por serviço           |
 | `consumo_log` | Histórico de consumo                     |
@@ -313,9 +332,28 @@ Chaves em `config`: `cpf_consumed_total`, `cnpj_consumed_total`, etc.
 
 Documentação oficial: [hubdodesenvolvedor.com.br](https://hubdodesenvolvedor.com.br/)
 
+## API Correios — WSFRETEJ / WSRASTREIOJ
+
+Aba **Correios** com duas seções na mesma tela: **Frete** e **Rastreio**.
+
+- Endpoint: `https://ws.hubdodesenvolvedor.com.br/v2/correios/`
+- **Frete:** `servico=calculoFrete`, CEPs, dimensões (cm), peso (g), `formato` (1=caixa, 2=rolo, 3=envelope), `tipoServico` (40010=SEDEX, 41106=PAC, …)
+- Opcionais frete: `avisoRecebimento=S`, `maoPropria=S`
+- **Rastreio:** `servico=rastreamento`, `codigo_rastreamento`
+- Timeout: 450s
+
+## Testes
+
+```bash
+uv sync --group dev
+uv run pytest
+```
+
+Cobertura atual: normalização Correios, serviço com cache mockado e parâmetros do `HubClient`.
+
 ## Próximos passos
 
-- [ ] Consulta Correios
+- [x] Consulta Correios (frete + rastreio)
 - [ ] Outros serviços
 
 ## Licença

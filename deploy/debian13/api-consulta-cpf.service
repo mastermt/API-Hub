@@ -1,0 +1,24 @@
+[Unit]
+Description=API Consulta CPF (Flet Web)
+Documentation=https://github.com/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@SERVICE_USER@
+Group=@SERVICE_USER@
+WorkingDirectory=@INSTALL_DIR@
+EnvironmentFile=-@INSTALL_DIR@/.env
+ExecStart=@INSTALL_DIR@/api-consulta --host 0.0.0.0 --port @SERVICE_PORT@
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=true
+PrivateTmp=true
+ReadWritePaths=@INSTALL_DIR@/data @INSTALL_DIR@/logs
+
+[Install]
+WantedBy=multi-user.target
