@@ -92,6 +92,20 @@ def test_rastrear_api(service, hub_mock):
     hub_mock.consultar_rastreio_correios.assert_called_once_with("AA123456789BR")
 
 
+def test_rastrear_nao_grava_cache_quando_api_falha(service, hub_mock, db):
+    hub_mock.consultar_rastreio_correios.return_value = {
+        "status": False,
+        "return": "NOK",
+        "message": {},
+    }
+    primeira = service.rastrear("AP018100208BR")
+    segunda = service.rastrear("AP018100208BR")
+
+    assert primeira["data"]["return"] == "NOK"
+    assert segunda["source"] == "api"
+    assert hub_mock.consultar_rastreio_correios.call_count == 2
+
+
 def test_rastrear_codigo_curto(service, hub_mock):
     resposta = service.rastrear("ABC")
     assert resposta["source"] == "validacao"

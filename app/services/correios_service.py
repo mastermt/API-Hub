@@ -91,7 +91,8 @@ class CorreiosService:
                 "data": self._erro_payload(f"Erro na consulta: {exc}"),
             }
 
-        self.db.save_correios(cache_key, "frete", payload)
+        if payload.get("return") == "OK":
+            self.db.save_correios(cache_key, "frete", payload)
         return {"source": "api", "data": payload}
 
     def rastrear(
@@ -112,7 +113,7 @@ class CorreiosService:
 
         try:
             raw = self.hub.consultar_rastreio_correios(codigo_limpo)
-            payload = normalizar_resposta_correios(raw)
+            payload = normalizar_resposta_correios({**raw, "servico": "rastreamento"})
         except HubClientError as exc:
             return {"source": "erro", "data": self._erro_payload(str(exc))}
         except Exception as exc:
@@ -121,7 +122,8 @@ class CorreiosService:
                 "data": self._erro_payload(f"Erro na consulta: {exc}"),
             }
 
-        self.db.save_correios(codigo_limpo, "rastreio", payload)
+        if payload.get("return") == "OK":
+            self.db.save_correios(codigo_limpo, "rastreio", payload)
         return {"source": "api", "data": payload}
 
     @staticmethod
