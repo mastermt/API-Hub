@@ -139,8 +139,9 @@ def _mensagem_erro_padrao(raw: dict[str, Any]) -> str:
     servico = str(raw.get("servico") or "").lower()
     if servico == "rastreamento" or "rastre" in servico:
         return (
-            "O Hub retornou erro no rastreio sem detalhes. "
-            "Confirme se o plano inclui WSRASTREIOJ e se o código está ativo nos Correios."
+            "WSRASTREIOJ (JSON): o Hub respondeu NOK sem detalhes. "
+            "A URL e os parâmetros estão corretos (servico=rastreamento, codigo_rastreamento). "
+            "Verifique no painel do Hub se o plano inclui rastreio e teste o mesmo código no site deles."
         )
     return "Consulta não retornou."
 

@@ -83,3 +83,4 @@ def test_normalizar_resposta_rastreio_nok_sem_mensagem():
     payload = normalizar_resposta_correios(raw)
     assert payload["return"] == "NOK"
     assert "WSRASTREIOJ" in payload["message"]
+    assert "servico=rastreamento" in payload["message"]

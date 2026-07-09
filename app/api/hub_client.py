@@ -62,7 +62,11 @@ class HubClient:
         )
 
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-            response = client.get(url, params=params)
+            response = client.get(
+                url,
+                params=params,
+                headers={"Accept": "application/json"},
+            )
             response.raise_for_status()
             return _parse_json_dict(response)
 
@@ -89,7 +93,11 @@ class HubClient:
             pool=CPF_CONNECT_TIMEOUT,
         )
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-            response = client.get(url, params=params)
+            response = client.get(
+                url,
+                params=params,
+                headers={"Accept": "application/json"},
+            )
             response.raise_for_status()
             return _parse_json_dict(response)
 
@@ -122,7 +130,11 @@ class HubClient:
             pool=CPF_CONNECT_TIMEOUT,
         )
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-            response = client.get(url, params=params)
+            response = client.get(
+                url,
+                params=params,
+                headers={"Accept": "application/json"},
+            )
             response.raise_for_status()
             return _parse_json_dict(response)
 
@@ -171,7 +183,11 @@ class HubClient:
             pool=CPF_CONNECT_TIMEOUT,
         )
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-            response = client.get(url, params=params)
+            response = client.get(
+                url,
+                params=params,
+                headers={"Accept": "application/json"},
+            )
             response.raise_for_status()
             return _parse_json_dict(response)
 
@@ -199,6 +215,10 @@ class HubClient:
             pool=CPF_CONNECT_TIMEOUT,
         )
         with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-            response = client.get(url, params=params)
+            response = client.get(
+                url,
+                params=params,
+                headers={"Accept": "application/json"},
+            )
             response.raise_for_status()
             return _parse_json_dict(response)
