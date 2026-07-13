@@ -115,6 +115,15 @@ Porta customizada:
 uv run api-consulta --port 8080
 ```
 
+Enable JIT:
+
+powershell
+```$env:PYTHON_JIT=1```
+
+cmd
+```set PYTHON_JIT=1```
+
+
 ### Com Python direto
 
 Web (padrão):
@@ -434,3 +443,4 @@ Pylint e mypy analisam o backend (`app/api`, `app/services`, `app/database`, `co
 ## Licença
 
 Uso interno / projeto privado.
+

@@ -72,4 +72,12 @@ def main(argv: list[str] | None = None) -> None:
 
 
 if __name__ == "__main__":
+    # Check JIT availability
+    status_avail = "JIT is available" if sys._jit.is_available() else "JIT is NOT available"
+
+    # Check JIT enablement
+    status_enabled = "JIT is enabled and active" if sys._jit.is_enabled() else "JIT is disabled"
+
+    print(status_avail)
+    print(status_enabled)
     main()
